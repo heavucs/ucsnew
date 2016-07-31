@@ -1,0 +1,37 @@
+#nav {
+}
+
+#nav ul {
+list-style-type:none;
+margin:0;
+padding:0;
+overflow: hidden;
+}
+
+#nav li {
+float:left;
+}
+
+#nav li a {
+text-decoration: none;
+display: block;
+border: 1px solid grey;
+width: 120px;
+margin: 0px;
+padding: 5px 0px 5px 0px;
+text-align: center;
+font-weight: bold;
+color: #7777FF;
+background-color: #DDDDDD;
+}
+
+#nav li a:hover {
+color: #FFFFFF;
+background-color: #7777FF;
+}
+
+#nav li .curpage {
+color: #FFFFFF;
+background-color: #7777FF;
+}
+

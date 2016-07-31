@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<head>
+ <meta charset="UTF-8">
+ <link rel='stylesheet' media='screen and (max-width: 1000px)' href="{{ url_for('static', filename='ucs_mobile.css') }}" rel="stylesheet">
+ <link rel='stylesheet' media='screen and (max-width: 870px)' href="{{ url_for('static', filename='ucs.css') }}" rel="stylesheet">
+ <link rel='stylesheet' media='screen and (min-width: 870px) and (orientation: landscape)' href="{{ url_for('static', filename='ucs.css') }}" rel="stylesheet">
+ <title>Used Curriculum Sale - {{ pageid }}</title>
+</head>
+<body>
+ <div id=page>
+  {% block nav %}
+  <script type="text/javascript">
+  var nav = {
+   home:["Home","/checkout/home"],
+   account:["Account","/checkout/account"],
+   item:["Lookup Item","/checkout/item"],
+   checkin:["Check In","/checkout/checkin"],
+   newsale:["New Sale","/checkout/newsale"],
+   viewsale:["View Sale","/checkout/viewsale"],
+   logout:["Logout","/checkout"],
+  }
+  </script>
+  <div id=nav>
+   <ul>
+    <script type="text/javascript">
+     {% if pageid %}
+     var pageid="{{ pageid }}";
+     {% else %}
+     window.location = "/checkout/home";
+     {% endif %}
+     for (i in nav) {
+      if (pageid == i) {
+       document.write("<li><a class='curpage' href='" + nav[i][1] + "'>" + nav[i][0] + "</a></li>");
+      } else {
+       document.write("<li><a href='" + nav[i][1] + "'>" + nav[i][0] + "</a></li>");
+      }
+     }
+    </script>
+   </ul>
+  {% endblock %}
+  {% block content %}
+  {% endblock %}
+ </div>
+</body>
+</html>
