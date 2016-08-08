@@ -4,35 +4,38 @@
 __requires__ = ['jinja2 >= 2.4']
 import pkg_resources
 
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 from flask_sqlalchemy import SQLAlchemy
 #from flask.ext.sqlalchemy import SQLAlchemy
 
+
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://ucs:ucsonline@localhost/ucs_2016'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 class Item(db.Model):
-   ID = db.Column(db.Integer(11), primary_key=True)
-   ItemNumber = db.Column(db.String(15), unique=True)
-   MemberNumber =  db.Column(db.String(15))
-   Description = db.Column(db.String(50))
-   Category = db.Column(db.String(25))
-   Subject = db.Column(db.String(25))
-   Publisher = db.Column(db.String(50))
-   Year = db.Column(db.String(4))
-   ISBN = db.Column(db.String(50))
-   Condition = db.Column(db.Integer(11))
-   ConditionDetail = db.Column(db.String(128))
-   NumItems = db.Column(db.Integer(11))
-   FridayPrice = db.Column(db.float)
-   SaturdayPrice = db.Column(db.float)
-   Donate = db.Column(db.boolean)
-   CheckedIn = db.Column(db.date)
-   CheckedOut = db.Column(db.date)
-   Status = db.Column(db.Integer(11))
-   Deleted = db.Column(db.boolean)
-   Printed = db.Column(db.boolean)
+   __tablename__ = 'Item'
+   ID = db.Column(db.Integer(), primary_key=True)
+   ItemNumber = db.Column(db.Unicode(15), unique=True)
+   MemberNumber =  db.Column(db.Unicode(15))
+   Description = db.Column(db.Unicode(50))
+   Category = db.Column(db.Unicode(25))
+   Subject = db.Column(db.Unicode(25))
+   Publisher = db.Column(db.Unicode(50))
+   Year = db.Column(db.Unicode(4))
+   ISBN = db.Column(db.Unicode(50))
+   Condition = db.Column(db.Integer())
+   ConditionDetail = db.Column(db.Unicode(128))
+   NumItems = db.Column(db.Integer())
+   FridayPrice = db.Column(db.Numeric())
+   SaturdayPrice = db.Column(db.Numeric())
+   Donate = db.Column(db.Boolean)
+   CheckedIn = db.Column(db.Date)
+   CheckedOut = db.Column(db.Date)
+   Status = db.Column(db.Integer())
+   Deleted = db.Column(db.Boolean)
+   Printed = db.Column(db.Boolean)
 
    def __init__(self, ItemNumber, MemberNumber, Description, Category, Subject, Publisher, Year, ISBN, Condition, ConditionDetail, NumItems, FridayPrice, SaturdayPrice, Donate, CheckedIn, CheckedOut, Status, Deleted, Printed):
       self.ItemNumber = itemnumber
@@ -70,6 +73,21 @@ def hello(name=None):
 @app.route('/')
 def index():
    return render_template('index.html')
+
+@app.route('/checkout/item', methods=['GET'])
+def item(pageid="item"):
+   if request.args.get('ItemNumber'):
+      lookupID = request.args.get('ItemNumber')
+   else:
+      lookupID = 1
+   if request.args.get('page'):
+      page = request.args.get('page')
+   else:
+      page = 1
+   lookupitem = Item.query.filter_by(ID=lookupID).all()
+   #lookupitem = Item.query.paginate(page=page, per_page=25)
+   lookupquery = lookupID
+   return render_template('item.html', pageid=pageid, lookupitem=lookupitem, lookupquery=lookupquery, lookupID=lookupID)
 
 @app.route('/checkout')
 @app.route('/checkout/')

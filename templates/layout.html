@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <head>
  <meta charset="UTF-8">
- <link rel='stylesheet' media='screen and (max-width: 1000px)' href="{{ url_for('static', filename='ucs_mobile.css') }}" rel="stylesheet">
- <link rel='stylesheet' media='screen and (max-width: 870px)' href="{{ url_for('static', filename='ucs.css') }}" rel="stylesheet">
- <link rel='stylesheet' media='screen and (min-width: 870px) and (orientation: landscape)' href="{{ url_for('static', filename='ucs.css') }}" rel="stylesheet">
+ <link rel='stylesheet' media='screen and (max-width: 1000px)' href="{{ url_for('static', filename='css/ucs_mobile.css') }}" rel="stylesheet">
+ <link rel='stylesheet' media='screen and (max-width: 870px)' href="{{ url_for('static', filename='css/ucs.css') }}" rel="stylesheet">
+ <link rel='stylesheet' media='screen and (min-width: 870px) and (orientation: landscape)' href="{{ url_for('static', filename='css/ucs.css') }}" rel="stylesheet">
  <title>Used Curriculum Sale - {{ pageid }}</title>
 </head>
 <body>
@@ -37,9 +37,12 @@
      }
     </script>
    </ul>
+  </div>
   {% endblock %}
-  {% block content %}
-  {% endblock %}
+  <div id="content">
+   {% block content %}
+   {% endblock %}
+  </div>
  </div>
 </body>
 </html>

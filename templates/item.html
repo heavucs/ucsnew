@@ -1,0 +1,56 @@
+{% extends "layout.html" %}
+{% block title %} - {{ pageid }}{% endblock %}
+{% block content %}
+<input type="text" value="{{ pageid }}">
+<p>This is the item page</p>
+<form method="get" id="ItemSearch" action="/checkout/item">
+ <ul>
+  <li><label for='ItemNumber'>Item Number: </label> <input type="text" id="ItemNumber" name="ItemNumber" value="{{ lookupID }}"></li>
+  <li><label for='AccountNumber'>Account Number: </label> <input type="text" value=""></li>
+  <li><label for='Description'>Description: </label> <input type="text" value=""></li>
+  <li><label for="status">Status: </lable>
+  <select id="status">
+   <option value="All" selected>All</option>
+   <option value="Pending">Pending</option>
+   <option value="Checked In">Checked In</option>
+   <option value="Sold">Sold</option>
+   <option value="Picked Up">Picked Up</option>
+  </select></li>
+  <li><label for="isdeleted">Show Deleted: </label> <input type="checkbox" id="isdeleted"></li>
+ </ul>
+ <input type=submit>
+ <input type=hidden id="page" value="">
+</form>
+<br>
+<table>
+ <tr>
+  <th>ID</th>
+  <th>Member</th>
+  <th>Item</th>
+  <th>Description</th>
+  <th>Category</th>
+  <th>Number</th>
+  <th>Status</th>
+  <th>FriPrice</th>
+  <th>SatPrice</th>
+  <th>Actions</th>
+ </tr>
+ {% for i in lookupitem %}
+  <tr>
+   <td>{{ i.ID }}</td>
+   <td>{{ i.MemberNumber }}</td>
+   <td>{{ i.ItemNumber }}</td>
+   <td>{{ i.Description }}</td>
+   <td>{{ i.Category }}</td>
+   <td>{{ i.NumItems }}</td>
+   <td>{{ i.Status }}</td>
+   <td>{{ i.FridayPrice }} </td>
+   <td>{{ i.SaturdayPrice }}</td>
+   <td>View Audit</td>
+  </tr>
+ {% endfor %}
+</table>
+
+<h1>{{ lookupitem.page }}</h1>
+
+{% endblock %}
