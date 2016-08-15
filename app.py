@@ -16,7 +16,7 @@ db = SQLAlchemy(app)
 
 class Item(db.Model):
    __tablename__ = 'Item'
-   ID = db.Column(db.Integer(), primary_key=True)
+   ID = db.Column(db.Integer, primary_key=True)
    ItemNumber = db.Column(db.Unicode(15), unique=True)
    MemberNumber =  db.Column(db.Unicode(15))
    Description = db.Column(db.Unicode(50))
@@ -38,28 +38,75 @@ class Item(db.Model):
    Printed = db.Column(db.Boolean)
 
    def __init__(self, ItemNumber, MemberNumber, Description, Category, Subject, Publisher, Year, ISBN, Condition, ConditionDetail, NumItems, FridayPrice, SaturdayPrice, Donate, CheckedIn, CheckedOut, Status, Deleted, Printed):
-      self.ItemNumber = itemnumber
-      self.MemberNumber = membernumber
-      self.Description = description
-      self.Category = category
-      self.Subject = subject
-      self.Publisher = publisher
-      self.Year = year
-      self.ISBN = isbn
-      self.Condition = condition
-      self.ConditionDetail = conditiondetail
-      self.NumItems = numitems
-      self.FridayPrice = fridayprice
-      self.SaturdayPrice = saturdayprice
-      self.Donate = donate
-      self.CheckedIn = checkedin
-      self.CheckedOut = checkedout
-      self.Status = status
-      self.Deleted = deleted
-      self.Printed = printed
+      self.ItemNumber = ItemNumber
+      self.MemberNumber = MemberNumber
+      self.Description = Description
+      self.Category = Category
+      self.Subject = Subject
+      self.Publisher = Publisher
+      self.Year = Year
+      self.ISBN = ISBN
+      self.Condition = Condition
+      self.ConditionDetail = ConditionDetail
+      self.NumItems = NumItems
+      self.FridayPrice = FridayPrice
+      self.SaturdayPrice = SaturdayPrice
+      self.Donate = Donate
+      self.CheckedIn = CheckedIn
+      self.CheckedOut = CheckedOut
+      self.Status = Status
+      self.Deleted = Deleted
+      self.Printed = Printed
 
    def __repr__(self):
       return '<Item %r>' % self.ItemNumber
+
+class Account(db.Model):
+   __tablename__ = 'Account'
+   ID = db.Column(db.Integer, primary_key=True)
+   MemberNumber = db.Column(db.Unicode(15), unique=True)
+   Established = db.Column(db.Date)
+   FirstName = db.column(db.Unicode(25))
+   LastName = db.column(db.Unicode(25))
+   Address = db.column(db.Unicode(128))
+   Address2 = db.column(db.Unicode(128))
+   City = db.column(db.Unicode(128))
+   State = db.column(db.Unicode(2))
+   Zip = db.column(db.Unicode(5))
+   Phone = db.column(db.Unicode(10))
+   Email = db.column(db.Unicode(128))
+   Password = db.column(db.Unicode(32))
+   Question = db.column(db.Unicode(50))
+   Answer = db.column(db.Unicode(50))
+   ActivationCode = db.column(db.Unicode(128))
+   Activated = db.column(db.Date)
+   Admin = db.column(db.Boolean)
+   Browser = db.column(db.Unicode(128))
+   Notification = db.column(db.Integer)
+
+   def __init__(MemberNumber, Established, FirstName, LastName, Address, Address2, City, State, Zip, Phone, Email, Password, Question, Answer, ActivationCode, Activated, Admin, Browser, Notification):
+      self.MemberNumber = MemberNumber
+      self.Established = Established
+      self.FirstName = FirstName
+      self.LastName = LastName
+      self.Address = Address
+      self.Address2 = Address2
+      self.City = City
+      self.State = State
+      self.Zip = Zip
+      self.Phone = Phone
+      self.Email = Email
+      self.Password = Password
+      self.Question = Question
+      self.Answer = Answer
+      self.ActivationCode = ActivationCode
+      self.Activated = Activated
+      self.Admin = Admin
+      self.Browser = Browser
+      self.Notification = Notification
+
+   def __repr__(self):
+      return '<Account %r>' % self.ID
 
 #@app.route('/')
 #def index():
@@ -73,6 +120,20 @@ def hello(name=None):
 @app.route('/')
 def index():
    return render_template('index.html')
+
+@app.route('/checkout/account', methods=['GET'])
+def account(pageid="account"):
+   if request.args.get('AccountNumber'):
+      lookupAcnt = request.args.get('AccountNumber')
+   else:
+      lookupAcnt = 1
+   if request.args.get('page'):
+      page = request.args.get('page')
+   else:
+      page = 1
+   lookupaccount = Account.query.filter_by(ID=lookupAcnt).all()
+   lookupquery = lookupAcnt
+   return render_template('account.html', pageid=pageid, lookupaccount=lookupaccount, lookupquery=lookupquery, lookupAcnt=lookupAcnt)
 
 @app.route('/checkout/item', methods=['GET'])
 def item(pageid="item"):

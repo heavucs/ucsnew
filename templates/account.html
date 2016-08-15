@@ -1,0 +1,39 @@
+{% extends "layout.html" %}
+{% block title %} - {{ pageid }}{% endblock %}
+{% block content %}
+<input type="text" value="{{ pageid }}">
+<p>This is the item page</p>
+<form method="get" id="AccountSearch" action="/checkout/account">
+ <ul>
+  <li><label for='MemberNumber'>Item Number: </label> <input type="text" id="MemberNumber" name="MemberNumber" value="{{ lookupID }}"></li>
+  <li><label for='LastName'>Account Number: </label> <input type="text" value=""></li>
+  <li><label for='PhoneNumber'>Description: </label> <input type="text" value=""></li>
+ </ul>
+ <input type=submit>
+ <input type=hidden id="page" value="">
+</form>
+<br>
+<table>
+ <tr>
+  <th>ID</th>
+  <th>Member Number</th>
+  <th>First Name</th>
+  <th>Last Name</th>
+  <th>Items</th>
+  <th>Activation</th>
+  <th>Actions</th>
+ </tr>
+ {% for i in lookupaccount %}
+  <tr>
+   <td>{{ i.ID }}</td>
+   <td>{{ i.MemberNumber }}</td>
+   <td>{{ i.FirstName }}</td>
+   <td>{{ i.LastName }}</td>
+   <td>#ofItems</td>
+   <td>{{ i.Activation }}</td>
+   <td>Actions</td>
+  </tr>
+ {% endfor %}
+</table>
+
+{% endblock %}
