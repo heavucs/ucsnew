@@ -126,7 +126,7 @@ def account(pageid="account"):
    if request.args.get('AccountNumber'):
       lookupAcnt = request.args.get('AccountNumber')
    else:
-      lookupAcnt = 1
+      lookupAcnt = 100001
    if request.args.get('page'):
       page = request.args.get('page')
    else:
