@@ -66,23 +66,23 @@ class Account(db.Model):
    ID = db.Column(db.Integer, primary_key=True)
    MemberNumber = db.Column(db.Unicode(15), unique=True)
    Established = db.Column(db.Date)
-   FirstName = db.column(db.Unicode(25))
-   LastName = db.column(db.Unicode(25))
-   Address = db.column(db.Unicode(128))
-   Address2 = db.column(db.Unicode(128))
-   City = db.column(db.Unicode(128))
-   State = db.column(db.Unicode(2))
-   Zip = db.column(db.Unicode(5))
-   Phone = db.column(db.Unicode(10))
-   Email = db.column(db.Unicode(128))
-   Password = db.column(db.Unicode(32))
-   Question = db.column(db.Unicode(50))
-   Answer = db.column(db.Unicode(50))
-   ActivationCode = db.column(db.Unicode(128))
-   Activated = db.column(db.Date)
-   Admin = db.column(db.Boolean)
-   Browser = db.column(db.Unicode(128))
-   Notification = db.column(db.Integer)
+   FirstName = db.Column(db.Unicode(25))
+   LastName = db.Column(db.Unicode(25))
+   Address = db.Column(db.Unicode(128))
+   Address2 = db.Column(db.Unicode(128))
+   City = db.Column(db.Unicode(128))
+   State = db.Column(db.Unicode(2))
+   Zip = db.Column(db.Unicode(5))
+   Phone = db.Column(db.Unicode(10))
+   Email = db.Column(db.Unicode(128))
+   Password = db.Column(db.Unicode(32))
+   Question = db.Column(db.Unicode(50))
+   Answer = db.Column(db.Unicode(50))
+   ActivationCode = db.Column(db.Unicode(128))
+   Activated = db.Column(db.Date)
+   Admin = db.Column(db.Boolean)
+   Browser = db.Column(db.Unicode(128))
+   Notification = db.Column(db.Integer)
 
    def __init__(MemberNumber, Established, FirstName, LastName, Address, Address2, City, State, Zip, Phone, Email, Password, Question, Answer, ActivationCode, Activated, Admin, Browser, Notification):
       self.MemberNumber = MemberNumber
@@ -123,17 +123,16 @@ def index():
 
 @app.route('/checkout/account', methods=['GET'])
 def account(pageid="account"):
-   if request.args.get('AccountNumber'):
-      lookupAcnt = request.args.get('AccountNumber')
+   if request.args.get('ID'):
+      lookupAcnt = request.args.get('ID')
    else:
-      lookupAcnt = 100001
+      lookupAcnt = 1
    if request.args.get('page'):
       page = request.args.get('page')
    else:
       page = 1
    lookupaccount = Account.query.filter_by(ID=lookupAcnt).all()
-   lookupquery = lookupAcnt
-   return render_template('account.html', pageid=pageid, lookupaccount=lookupaccount, lookupquery=lookupquery, lookupAcnt=lookupAcnt)
+   return render_template('account.html', pageid=pageid, lookupaccount=lookupaccount, lookupAcnt=lookupAcnt)
 
 @app.route('/checkout/item', methods=['GET'])
 def item(pageid="item"):
@@ -147,8 +146,7 @@ def item(pageid="item"):
       page = 1
    lookupitem = Item.query.filter_by(ID=lookupID).all()
    #lookupitem = Item.query.paginate(page=page, per_page=25)
-   lookupquery = lookupID
-   return render_template('item.html', pageid=pageid, lookupitem=lookupitem, lookupquery=lookupquery, lookupID=lookupID)
+   return render_template('item.html', pageid=pageid, lookupitem=lookupitem, lookupID=lookupID)
 
 @app.route('/checkout')
 @app.route('/checkout/')

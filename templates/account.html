@@ -5,7 +5,8 @@
 <p>This is the item page</p>
 <form method="get" id="AccountSearch" action="/checkout/account">
  <ul>
-  <li><label for='MemberNumber'>Member Number: </label> <input type="text" id="MemberNumber" name="MemberNumber" value="{{ lookupID }}"></li>
+  <li><label for='ID'>DB Account Number: </label> <input type="text" id="ID" name="ID" value="{{ lookupAcnt }}"></li>
+  <li><label for='MemberNumber'>Member Number: </label> <input type="text" id="MemberNumber" name="MemberNumber" value=""></li>
   <li><label for='LastName'>Last Name: </label> <input type="text" value=""></li>
   <li><label for='PhoneNumber'>Phone Number: </label> <input type="text" value=""></li>
  </ul>
@@ -35,5 +36,7 @@
   </tr>
  {% endfor %}
 </table>
+<h1>{{ lookupaccount }}</h1>
+<h1>{{ lookupAcnt }}</h1>
 
 {% endblock %}
