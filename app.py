@@ -4,7 +4,7 @@
 __requires__ = ['jinja2 >= 2.4']
 import pkg_resources
 
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 #from flask.ext.sqlalchemy import SQLAlchemy
 
@@ -134,19 +134,46 @@ def account(pageid="account"):
    lookupaccount = Account.query.filter_by(ID=lookupAcnt).all()
    return render_template('account.html', pageid=pageid, lookupaccount=lookupaccount, lookupAcnt=lookupAcnt)
 
-@app.route('/checkout/item', methods=['GET'])
-def item(pageid="item"):
-   if request.args.get('ItemNumber'):
-      lookupID = request.args.get('ItemNumber')
+@app.route('/checkout/item/lookup', methods=['GET','POST'])
+def itemlookup(pageid="item"):
+   #lookupID = request.args.get('ItemNumber', type=str, default=1)
+   #page = request.args.get('page', type=int, default=1)
+   if request.is_json:
+      request_data = request.get_json()
+      if 'lookupID' in request_data:
+         lookupID = request_data['lookupID']
+      else:
+         lookupID = 1
+      if 'page' in request_data:
+         page = request_data['page']
+      else:
+         page = 1
    else:
       lookupID = 1
-   if request.args.get('page'):
-      page = request.args.get('page')
-   else:
       page = 1
-   lookupitem = Item.query.filter_by(ID=lookupID).all()
-   #lookupitem = Item.query.paginate(page=page, per_page=25)
-   return render_template('item.html', pageid=pageid, lookupitem=lookupitem, lookupID=lookupID)
+   pagination = Item.query.filter(Item.ID.like("%s%s"%(lookupID,"%"))).paginate(page=page, per_page=25, error_out=False)
+   response = jsonify(pageid=pageid)
+   return response
+
+@app.route('/checkout/item', methods=['GET','POST'])
+def item(pageid="item"):
+   if request.is_json:
+      request_data = request.get_json()
+      if 'lookupID' in request_data:
+         lookupID = request_data['lookupID']
+      else:
+         lookupID = 1
+      if 'page' in request_data:
+         page = request_data['page']
+      else:
+         page = 1
+   else:
+      lookupID = request.args.get('ItemNumber', type=str, default=1)
+      page = request.args.get('page', type=int, default=1)
+      #lookupID = 1
+      #page = 1
+   pagination = Item.query.filter(Item.ID.like("%s%s"%(lookupID,"%"))).paginate(page=page, per_page=25, error_out=False)
+   return render_template('item.html', pageid=pageid, page=page, lookupID=lookupID, pagination=pagination)
 
 @app.route('/checkout')
 @app.route('/checkout/')
