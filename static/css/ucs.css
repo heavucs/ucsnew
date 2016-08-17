@@ -1,3 +1,20 @@
+/*
+Good Minion
+Yellow #FBD85D
+Blue: #2C4A6A
+Black: #42403D
+Yellow Softend #FFEE99;
+
+Evil Minion
+Purple #7777FF
+Black #000000
+White #FFFFFF
+*/
+
+body {
+background-color: #FE9;
+}
+
 #nav {
 }
 
@@ -21,32 +38,118 @@ margin: 0px;
 padding: 5px 0px 5px 0px;
 text-align: center;
 font-weight: bold;
-color: #7777FF;
-background-color: #DDDDDD;
-}
-
-#nav li a:hover {
-color: #FFFFFF;
-background-color: #7777FF;
+/*color: #7777FF;
+background-color: #DDDDDD; */
+color: #FBD85D;
+background-color: #2C4A6A;
 }
 
 #nav li .curpage {
-color: #FFFFFF;
-background-color: #7777FF;
+color: #2C4A6A;
+background-color: #FBD85D;
+font-weight: bold;
 }
 
-#content {
+#nav li a:hover {
+color: #2C4A6A;
+background-color: #FBD85D;
+background: radial-gradient(#FBD85D,#2C4A6A);
 }
 
-#content li {
+#lookup {
+color: #2C4A6A;
 }
 
-#content table {
-border: 1px solid black;
+#lookup li {
 }
 
-#content table tr td,th {
-border: 1px solid black;
+#lookup table {
+border: 1px solid #42403D;
+border-collapse: collapse;
 }
 
+#lookup table tr {
+padding:2px 10px 2px 10px;
+}
+
+#lookup table tr:nth-child(even) {
+background: #FFF;
+}
+
+#lookup table tr:nth-child(odd) {
+background: #FFEE99;
+}
+
+#lookup table tr th {
+color: #FBD85D;
+background: linear-gradient(to bottom, #2C4A6A, #2C4A6A);
+border: 1px solid #42403D;
+padding:3px 10px 3px 10px;
+}
+
+#content table tr td {
+border: 1px solid #42403D;
+}
+
+#search table {
+border-style: none;
+padding: 10px;
+}
+
+#search table tr th {
+border-style: none;
+}
+
+#search table tr td {
+border-style: none;
+}
+
+#search select, input .standardwidth {
+box-sizing: border-box;
+width:150px;
+}
+
+#pagination {
+float: top;
+}
+
+#pagination .nolink {
+text-decoration: none;
+display: block;
+border: 1px solid #FBD85D;
+width: 40px;
+margin: 0px;
+padding: 2px 0px 2px 0px;
+text-align: center;
+font-weight: bold;
+color: #FBD85D;
+background-color: #2C4A6A;
+float: left;
+}
+
+#pagination a {
+text-decoration: none;
+display: block;
+border: 1px solid #FBD85D;
+width: 40px;
+margin: 0px;
+padding: 2px 0px 2px 0px;
+text-align: center;
+font-weight: bold;
+color: #FBD85D;
+background-color: #2C4A6A;
+float: left;
+}
+
+#pagination .curpage {
+color: #2C4A6A;
+background-color: #FBD85D;
+font-weight: bold;
+}
+
+#pagination a:hover {
+color: #2C4A6A;
+background-color: #FBD85D;
+background: radial-gradient(#FBD85D,#2C4A6A);
+}
 

@@ -1,0 +1,61 @@
+{% extends "layout.html" %}
+{% block title %} - {{ pageid }}{% endblock %}
+{% block content %}
+<div id=pagination class=pagination><p><span class="nolink">Page: </span>
+ {%- for page in pagination.iter_pages() %}
+  {% if page %}
+   {% if page != pagination.page %}
+    <a href="javascript:document.getElementById('Page').value = '{{ page }}'; lookup();">{{ page }}</a>
+   {% else %}
+    <a class=curpage><strong>{{ page }}</strong></a>
+   {% endif %}
+  {% else %}
+   <span class="nolink">…</span>
+  {% endif %}
+ {%- endfor %}
+</p><br><br></div<>
+<div id="results">
+<table>
+ <tr>
+  <th>ID</th>
+  <th>Member</th>
+  <th>Item</th>
+  <th>Description</th>
+  <th>Category</th>
+  <th>Number</th>
+  <th>Status</th>
+  <th>FriPrice</th>
+  <th>SatPrice</th>
+  <th>Actions</th>
+ </tr>
+ {% for i in pagination.items %}
+  <tr>
+   <td>{{ i.ID }}</td>
+   <td>{{ i.MemberNumber }}</td>
+   <td>{{ i.ItemNumber }}</td>
+   <td>{{ i.Description }}</td>
+   <td>{{ i.Category }}</td>
+   <td>{{ i.NumItems }}</td>
+   <td>{{ i.Status }}</td>
+   <td>{{ i.FridayPrice }} </td>
+   <td>{{ i.SaturdayPrice }}</td>
+   <td>View Audit</td>
+  </tr>
+ {% endfor %}
+</table>
+</div>
+<div id=pagination class=pagination><p><span class="nolink">Page: </span>
+ {%- for page in pagination.iter_pages() %}
+  {% if page %}
+   {% if page != pagination.page %}
+    <a href="javascript:document.getElementById('Page').value = '{{ page }}'; lookup();">{{ page }}</a>
+   {% else %}
+    <a class=curpage><strong>{{ page }}</strong></a>
+   {% endif %}
+  {% else %}
+   <span class="nolink">…</span>
+  {% endif %}
+ {%- endfor %}
+</p><br><br></div<>
+
+{% endblock %}

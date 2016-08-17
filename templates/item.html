@@ -1,9 +1,6 @@
 {% extends "layout.html" %}
 {% block title %} - {{ pageid }}{% endblock %}
 {% block content %}
-<input type="text" value="{{ pageid }}">
-{{ page }}
-{{ lookupID }}
 <script>
  function lookup() {
   var xmlhttp;
@@ -16,94 +13,94 @@
    }
   }
 
-  FormItemNumber = document.getElementById("ItemNumber").value;
-  FormAccountNumber = document.getElementById("AccountNumber").value;
-  FormDescription = document.getElementById("Description").value;
-  FormStatus = document.getElementById("Status").value;
-  FormIsDeleted = document.getElementById("isdeleted").value;
-  FormPage = document.getElementById("page").value;
+  if (document.getElementById("ItemNumber") == '')
+  {
+   FormItemNumber = '';
+  }
+  else
+  {
+   FormItemNumber = document.getElementById("ItemNumber").value;
+  }
+  if (document.getElementById("AccountNumber").value == '')
+  {
+   FormAccountNumber = '';
+  }
+  else
+  {
+   FormAccountNumber = document.getElementById("AccountNumber").value;
+  }
+  if (document.getElementById("Description").value == '')
+  {
+   FormDescription = '';
+  }
+  else
+  {
+   FormDescription = document.getElementById("Description").value;
+  }
+  if (document.getElementById("Status").value == '')
+  {
+   FormStatus = '';
+  }
+  else
+  {
+   FormStatus = document.getElementById("Status").value;
+  }
+  if (document.getElementById("isdeleted").value == '')
+  {
+   FormIsDeleted = '';
+  }
+  else
+  {
+   FormIsDeleted = document.getElementById("isdeleted").value;
+  }
+  if (document.getElementById("Page").value == '')
+  {
+   FormPage = 1;
+  }
+  else
+  {
+   FormPage = parseInt(document.getElementById("Page").value);
+  }
 
   xmlhttp.open("POST","/checkout/item/lookup",true);
   xmlhttp.setRequestHeader("Content-type","application/x-www-form-urlencoded");
-  //xmlhttp.setRequestHeader("Content-type","application/json");
-  //xmlhttp.send("ItemNumber=\""+FormItemNumber+"\"&AccountNumber=\""+FormAccountNumber+"\"&Description=\""+FormDescription+"\"&Status=\""+FormStatus+"\"&IsDeleted=\""+FormIsDeleted+"\"&Page=\""+"FormPage"+"\"");
-  xmlhttp.send();
-  //document.getElementById("lookup").innerHTML = "New text!";
+  xmlhttp.send('ItemNumber='+FormItemNumber+'&AccountNumber='+FormAccountNumber+'&Description='+FormDescription+'&Status='+FormStatus+'&IsDeleted='+FormIsDeleted+'&Page='+FormPage);
  }
 </script>
-<script>
- function lookup2() {
-  document.getElementById("lookup").innerHTML = "New text!";
- }
-</script>
-<form enctype='application/json' method="get" id="ItemSearch" action="#">
- <ul>
-  <li><label for='ItemNumber'>Item Number: </label>
-   <input type="text" id="ItemNumber" name="ItemNumber" value="{{ lookupID }}" onkeypress="javascript:lookup()"></li>
-  <li><label for='AccountNumber'>Account Number: </label>
-   <input type="text" id="AccountNumber" value=""></li>
-  <li><label for='Description'>Description: </label>
-   <input type="text" id="Description" value=""></li>
-  <li><label for="status">Status: </label>
-   <select id="Status">
-   <option value="All" selected>All</option>
-   <option value="Pending">Pending</option>
-   <option value="Checked In">Checked In</option>
-   <option value="Sold">Sold</option>
-   <option value="Picked Up">Picked Up</option>
-  </select></li>
-  <li><label for="isdeleted">Show Deleted: </label>
-   <input type="checkbox" id="isdeleted"></li>
- </ul>
- <input type=submit>
- <input type=hidden id="page" value="">
- <a href="javascript:lookup2()">test</a>
+<div id="search">
+<form id="ItemSearch">
+ <table>
+  <tr>
+   <td><label for='ItemNumber'>Item Number: </label></td>
+   <td><input type="text" class="standardwidth" id="ItemNumber" name="ItemNumber" autocomplete="off" autofocus value="" onkeyup="javascript:lookup()"></td>
+  </tr>
+  <tr>
+   <td><label for='AccountNumber'>Account Number: </label></td>
+   <td><input type="text" class="standardwidth" id="AccountNumber" autocomplete="off" value="" onkeyup="javascript:lookup()"></td>
+  </tr>
+   <td><label for='Description'>Description: </label></td>
+   <td><input type="text" class="standardwidth" id="Description" autocomplete="off" value="" onkeyup="javascript:lookup()"></td>
+  <tr>
+   <td><label for="status">Status: </label></td>
+   <td><select id="Status" class="standardwidth" autocomplete="off" onchange="javascript:lookup()">
+     <option value="All" selected>All</option>
+     <option value="Pending">Pending</option>
+     <option value="Checked In">Checked In</option>
+     <option value="Sold">Sold</option>
+     <option value="Picked Up">Picked Up</option>
+    </select></td>
+  </tr>
+  <tr>
+   <td><label for="isdeleted" autocomplete="off">Show Deleted: </label></td>
+   <td><input type="checkbox" id="isdeleted" onchange="javascript:lookup()"></td>
+  </tr>
+ </table>
+ <input type=hidden id="Page" value="{{ page }}">
 </form>
+</div>
 <br>
 
 <div id="lookup">
- <table>
-  <tr>
-   <th>ID</th>
-   <th>Member</th>
-   <th>Item</th>
-   <th>Description</th>
-   <th>Category</th>
-   <th>Number</th>
-   <th>Status</th>
-   <th>FriPrice</th>
-   <th>SatPrice</th>
-   <th>Actions</th>
-  </tr>
-  {% for i in pagination.items %}
-   <tr>
-    <td>{{ i.ID }}</td>
-    <td>{{ i.MemberNumber }}</td>
-    <td>{{ i.ItemNumber }}</td>
-    <td>{{ i.Description }}</td>
-    <td>{{ i.Category }}</td>
-    <td>{{ i.NumItems }}</td>
-    <td>{{ i.Status }}</td>
-    <td>{{ i.FridayPrice }} </td>
-    <td>{{ i.SaturdayPrice }}</td>
-    <td>View Audit</td>
-   </tr>
-  {% endfor %}
- </table>
- <div class=pagination><p>Page: 
-  {%- for page in pagination.iter_pages() %}
-   {% if page %}
-    {% if page != pagination.page %}
-     <a href="{{ url_for(pageid, page=page) }}">{{ page }}</a>
-    {% else %}
-     <strong>{{ page }}</strong>
-    {% endif %}
-   {% else %}
-    <span class=ellipsis>…</span>
-   {% endif %}
-  {%- endfor %}
- </p></div>
- <p>Pagination query: {{ pagination.query }}</p>
 </div>
 
 {% endblock %}

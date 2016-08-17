@@ -134,46 +134,40 @@ def account(pageid="account"):
    lookupaccount = Account.query.filter_by(ID=lookupAcnt).all()
    return render_template('account.html', pageid=pageid, lookupaccount=lookupaccount, lookupAcnt=lookupAcnt)
 
-@app.route('/checkout/item/lookup', methods=['GET','POST'])
+@app.route('/checkout/item/lookup', methods=['POST'])
 def itemlookup(pageid="item"):
-   #lookupID = request.args.get('ItemNumber', type=str, default=1)
-   #page = request.args.get('page', type=int, default=1)
-   if request.is_json:
-      request_data = request.get_json()
-      if 'lookupID' in request_data:
-         lookupID = request_data['lookupID']
+   if request.method == 'POST':
+      if request.form['ItemNumber']:
+         ItemNumber = request.form['ItemNumber']
       else:
-         lookupID = 1
-      if 'page' in request_data:
-         page = request_data['page']
+         ItemNumber = ""
+      if request.form['AccountNumber']:
+         AccountNumber = request.form['AccountNumber']
+      else:
+         AccountNumber = ""
+      if request.form['Description']:
+         Description = request.form['Description']
+      else:
+         Description = ""
+      if request.form['Page']:
+         page = int(request.form['Page'])
       else:
          page = 1
    else:
-      lookupID = 1
       page = 1
-   pagination = Item.query.filter(Item.ID.like("%s%s"%(lookupID,"%"))).paginate(page=page, per_page=25, error_out=False)
-   response = jsonify(pageid=pageid)
-   return response
+   pagination = ((Item.query
+      .filter(Item.ID.like("%s%s"%(ItemNumber,"%")))
+      .filter(Item.MemberNumber.like("%s%s"%(AccountNumber,"%")))
+      .filter(Item.Description.like("%s%s%s"%("%",Description,"%"))))
+         .paginate(page=page, per_page=25, error_out=False))
+   return render_template('itemresults.html', pageid=pageid, page=page, pagination=pagination)
 
 @app.route('/checkout/item', methods=['GET','POST'])
 def item(pageid="item"):
-   if request.is_json:
-      request_data = request.get_json()
-      if 'lookupID' in request_data:
-         lookupID = request_data['lookupID']
-      else:
-         lookupID = 1
-      if 'page' in request_data:
-         page = request_data['page']
-      else:
-         page = 1
-   else:
-      lookupID = request.args.get('ItemNumber', type=str, default=1)
-      page = request.args.get('page', type=int, default=1)
-      #lookupID = 1
-      #page = 1
-   pagination = Item.query.filter(Item.ID.like("%s%s"%(lookupID,"%"))).paginate(page=page, per_page=25, error_out=False)
-   return render_template('item.html', pageid=pageid, page=page, lookupID=lookupID, pagination=pagination)
+   #lookupID = request.args.get('ItemNumber', type=str, default='')
+   #page = request.args.get('Page', type=int, default=1)
+   #pagination = Item.query.filter(Item.ID.like("%s%s"%(lookupID,"%"))).paginate(page=page, per_page=25, error_out=False)
+   return render_template('item.html', pageid=pageid)
 
 @app.route('/checkout')
 @app.route('/checkout/')
