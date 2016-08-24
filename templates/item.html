@@ -4,12 +4,12 @@
 <script>
  function lookup() {
   var xmlhttp;
-  xmlhttp=new XMLHttpRequest();
-  xmlhttp.onreadystatechange=function()
+  xmlhttp = new XMLHttpRequest();
+  xmlhttp.onreadystatechange = function()
   {
-   if (xmlhttp.readyState==4 && xmlhttp.status==200) 
+   if (xmlhttp.readyState == 4 && xmlhttp.status == 200)
    {
-    document.getElementById("lookup").innerHTML=xmlhttp.responseText;
+    document.getElementById("lookup").innerHTML = xmlhttp.responseText;
    }
   }
 
@@ -62,41 +62,43 @@
    FormPage = parseInt(document.getElementById("Page").value);
   }
 
-  xmlhttp.open("POST","/checkout/item/lookup",true);
+  xmlhttp.open("POST","/checkout/item",true);
   xmlhttp.setRequestHeader("Content-type","application/x-www-form-urlencoded");
   xmlhttp.send('ItemNumber='+FormItemNumber+'&AccountNumber='+FormAccountNumber+'&Description='+FormDescription+'&Status='+FormStatus+'&IsDeleted='+FormIsDeleted+'&Page='+FormPage);
  }
 </script>
+
 <div id="search">
-<form id="ItemSearch">
- <table>
-  <tr>
-   <td><label for='ItemNumber'>Item Number: </label></td>
-   <td><input type="text" class="standardwidth" id="ItemNumber" name="ItemNumber" autocomplete="off" autofocus value="" onkeyup="javascript:lookup()"></td>
-  </tr>
-  <tr>
-   <td><label for='AccountNumber'>Account Number: </label></td>
-   <td><input type="text" class="standardwidth" id="AccountNumber" autocomplete="off" value="" onkeyup="javascript:lookup()"></td>
-  </tr>
-   <td><label for='Description'>Description: </label></td>
-   <td><input type="text" class="standardwidth" id="Description" autocomplete="off" value="" onkeyup="javascript:lookup()"></td>
-  <tr>
-   <td><label for="status">Status: </label></td>
-   <td><select id="Status" class="standardwidth" autocomplete="off" onchange="javascript:lookup()">
-     <option value="All" selected>All</option>
-     <option value="Pending">Pending</option>
-     <option value="Checked In">Checked In</option>
-     <option value="Sold">Sold</option>
-     <option value="Picked Up">Picked Up</option>
-    </select></td>
-  </tr>
-  <tr>
-   <td><label for="isdeleted" autocomplete="off">Show Deleted: </label></td>
-   <td><input type="checkbox" id="isdeleted" onchange="javascript:lookup()"></td>
-  </tr>
- </table>
- <input type=hidden id="Page" value="{{ page }}">
-</form>
+ <form id="ItemSearch">
+  <table>
+   <tr>
+    <td><label for='ItemNumber'>Item Number: </label></td>
+    <td><input type="text" class="standardwidth" id="ItemNumber" name="ItemNumber" autocomplete="off" autofocus value="" onkeyup="javascript:lookup()"></td>
+   </tr>
+   <tr>
+    <td><label for='AccountNumber'>Account Number: </label></td>
+    <td><input type="text" class="standardwidth" id="AccountNumber" autocomplete="off" value="" onkeyup="javascript:lookup()"></td>
+   </tr>
+   <tr>
+    <td><label for='Description'>Description: </label></td>
+    <td><input type="text" class="standardwidth" id="Description" autocomplete="off" value="" onkeyup="javascript:lookup()"></td>
+   <tr>
+    <td><label for="status">Status: </label></td>
+    <td><select id="Status" class="standardwidth" autocomplete="off" onchange="javascript:lookup()">
+      <option value="All" selected>All</option>
+      <option value="Pending">Pending</option>
+      <option value="Checked In">Checked In</option>
+      <option value="Sold">Sold</option>
+      <option value="Picked Up">Picked Up</option>
+     </select></td>
+   </tr>
+   <tr>
+    <td><label for="isdeleted" autocomplete="off">Show Deleted: </label></td>
+    <td><input type="checkbox" id="isdeleted" onchange="javascript:lookup()"></td>
+   </tr>
+  </table>
+  <input type="hidden" id="Page" value="{{ page }}">
+ </form>
 </div>
 <br>
 

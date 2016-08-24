@@ -1,42 +1,91 @@
 {% extends "layout.html" %}
 {% block title %} - {{ pageid }}{% endblock %}
 {% block content %}
-<input type="text" value="{{ pageid }}">
-<p>This is the item page</p>
-<form method="get" id="AccountSearch" action="/checkout/account">
- <ul>
-  <li><label for='ID'>DB Account Number: </label> <input type="text" id="ID" name="ID" value="{{ lookupAcnt }}"></li>
-  <li><label for='MemberNumber'>Member Number: </label> <input type="text" id="MemberNumber" name="MemberNumber" value=""></li>
-  <li><label for='LastName'>Last Name: </label> <input type="text" value=""></li>
-  <li><label for='PhoneNumber'>Phone Number: </label> <input type="text" value=""></li>
- </ul>
- <input type=submit>
- <input type=hidden id="page" value="">
-</form>
+<script>
+ function lookup() {
+  var xmlhttp;
+  xmlhttp = new XMLHttpRequest();
+  xmlhttp.onreadystatechange = function()
+  {
+   if (xmlhttp.readyState == 4 && xmlhttp.status == 200)
+   {
+    document.getElementById("lookup").innerHTML = xmlhttp.responseText;
+   }
+  }
+
+  if (document.getElementById("ID") == '')
+  {
+   FormID = '';
+  }
+  else
+  {
+   FormID = document.getElementById("ID").value;
+  }
+  if (document.getElementById("MemberNumber") == '')
+  {
+   FormMemberNumber = '';
+  }
+  else
+  {
+   FormMemberNumber = document.getElementById("MemberNumber").value;
+  }
+  if (document.getElementById("LastName") == '')
+  {
+   FormLastName = '';
+  }
+  else
+  {
+   FormLastName = document.getElementById("LastName").value;
+  }
+  if (document.getElementById("PhoneNumber") == '')
+  {
+   FormPhoneNumber = '';
+  }
+  else
+  {
+   FormPhoneNumber = document.getElementById("PhoneNumber").value;
+  }
+  if (document.getElementById("Page") == '')
+  {
+   FormPage = 1;
+  }
+  else
+  {
+   FormPage = parseInt(document.getElementById("Page").value);
+  }
+
+  xmlhttp.open("POST","/checkout/account",true);
+  xmlhttp.setRequestHeader("Content-type","application/x-www-form-urlencoded");
+  xmlhttp.send('ID='+FormID+'&MemberNumber='+FormMemberNumber+'&LastName='+FormLastName+'&PhoneNumber='+FormPhoneNumber+'&Page='+FormPage);
+ }
+</script>
+
+<div id="search">
+ <form id="AccountSearch">
+  <table>
+   <tr>
+    <td><label for='ID'>DB Account Number: </label></td>
+    <td><input type="text" class="standardwidth" id="ID" name="ID" autocomplete="off" autofocus value="" onkeyup="javascript:lookup()"></td>
+   </tr>
+   <tr>
+    <td><label for='MemberNumber'>Member Number: </label></td>
+    <td><input type="text" class="standardwidth" id="MemberNumber" name="MemberNumber" autocomplete="off" value="" onkeyup="javascript:lookup()"></td>
+   </tr>
+   <tr>
+    <td><label for='LastName'>Last Name: </label></td>
+    <td><input type="text" class="standardwidth" id="LastName" name="LastName" autocomplete="off" value="" onkeyup="javascript:lookup()"></td>
+   </tr>
+   <tr>
+    <td><label for='PhoneNumber'>Phone Number: </label></td>
+    <td><input type="text" class="standardwidth" id="PhoneNumber" name="PhoneNumber" autocomplete="off" value="" placeholder="8041231234" onkeyup="javascript:lookup()"></td>
+   </tr>
+  </table>
+  <input type="hidden" id="Page" value="{{ page }}">
+ </form>
+</div>
 <br>
-<table>
- <tr>
-  <th>ID</th>
-  <th>Member Number</th>
-  <th>First Name</th>
-  <th>Last Name</th>
-  <th>Items</th>
-  <th>Activation</th>
-  <th>Actions</th>
- </tr>
- {% for i in lookupaccount %}
-  <tr>
-   <td>{{ i.ID }}</td>
-   <td>{{ i.MemberNumber }}</td>
-   <td>{{ i.FirstName }}</td>
-   <td>{{ i.LastName }}</td>
-   <td>#ofItems</td>
-   <td>{{ i.Activation }}</td>
-   <td>Actions</td>
-  </tr>
- {% endfor %}
-</table>
-<h1>{{ lookupaccount }}</h1>
-<h1>{{ lookupAcnt }}</h1>
+
+<div id="lookup">
+</div>
 
 {% endblock %}

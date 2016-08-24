@@ -121,21 +121,41 @@ def hello(name=None):
 def index():
    return render_template('index.html')
 
-@app.route('/checkout/account', methods=['GET'])
+@app.route('/checkout/account', methods=['GET','POST'])
 def account(pageid="account"):
-   if request.args.get('ID'):
-      lookupAcnt = request.args.get('ID')
+   if request.method == 'POST':
+      if request.form['ID']:
+         ID = request.form['ID']
+      else:
+         ID = ""
+      if request.form['MemberNumber']:
+         MemberNumber = request.form['MemberNumber']
+      else:
+         MemberNumber = ""
+      if request.form['LastName']:
+         LastName = request.form['LastName']
+      else:
+         LastName = ""
+      if request.form['PhoneNumber']:
+         PhoneNumber = request.form['PhoneNumber']
+      else:
+         PhoneNumber = ""
+      if request.form['Page']:
+         page = int(request.form['Page'])
+      else:
+         page = 1
+      pagination = ((Account.query
+         .filter(Account.ID.like("%s%s"%(ID,"%")))
+         .filter(Account.MemberNumber.like("%s%s"%(MemberNumber,"%")))
+         .filter(Account.LastName.like("%s%s"%(LastName,"%")))
+         .filter(Account.Phone.like("%s%s"%(PhoneNumber,"%"))))
+            .paginate(page=page, per_page=25, error_out=False))
+      return render_template('accountresults.html', pageid=pageid, page=page, pagination=pagination)
    else:
-      lookupAcnt = 1
-   if request.args.get('page'):
-      page = request.args.get('page')
-   else:
-      page = 1
-   lookupaccount = Account.query.filter_by(ID=lookupAcnt).all()
-   return render_template('account.html', pageid=pageid, lookupaccount=lookupaccount, lookupAcnt=lookupAcnt)
+      return render_template('account.html', pageid=pageid)
 
-@app.route('/checkout/item/lookup', methods=['POST'])
-def itemlookup(pageid="item"):
+@app.route('/checkout/item', methods=['GET','POST'])
+def item(pageid="item"):
    if request.method == 'POST':
       if request.form['ItemNumber']:
          ItemNumber = request.form['ItemNumber']
@@ -153,21 +173,14 @@ def itemlookup(pageid="item"):
          page = int(request.form['Page'])
       else:
          page = 1
+      pagination = ((Item.query
+         .filter(Item.ID.like("%s%s"%(ItemNumber,"%")))
+         .filter(Item.MemberNumber.like("%s%s"%(AccountNumber,"%")))
+         .filter(Item.Description.like("%s%s%s"%("%",Description,"%"))))
+            .paginate(page=page, per_page=25, error_out=False))
+      return render_template('itemresults.html', pageid=pageid, page=page, pagination=pagination)
    else:
-      page = 1
-   pagination = ((Item.query
-      .filter(Item.ID.like("%s%s"%(ItemNumber,"%")))
-      .filter(Item.MemberNumber.like("%s%s"%(AccountNumber,"%")))
-      .filter(Item.Description.like("%s%s%s"%("%",Description,"%"))))
-         .paginate(page=page, per_page=25, error_out=False))
-   return render_template('itemresults.html', pageid=pageid, page=page, pagination=pagination)
-
-@app.route('/checkout/item', methods=['GET','POST'])
-def item(pageid="item"):
-   #lookupID = request.args.get('ItemNumber', type=str, default='')
-   #page = request.args.get('Page', type=int, default=1)
-   #pagination = Item.query.filter(Item.ID.like("%s%s"%(lookupID,"%"))).paginate(page=page, per_page=25, error_out=False)
-   return render_template('item.html', pageid=pageid)
+      return render_template('item.html', pageid=pageid)
 
 @app.route('/checkout')
 @app.route('/checkout/')

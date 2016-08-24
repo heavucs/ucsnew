@@ -1,12 +1,12 @@
-<div id="pagination" class="pagination">
+<div id=pagination class=pagination>
  <p>
-  <span class="nolink">Page: </span>
+ <span class="nolink">Page: </span>
   {%- for page in pagination.iter_pages() %}
    {% if page %}
     {% if page != pagination.page %}
      <a href="javascript:document.getElementById('Page').value = '{{ page }}'; lookup();">{{ page }}</a>
     {% else %}
-     <a class="curpage"><strong>{{ page }}</strong></a>
+     <a class=curpage><strong>{{ page }}</strong></a>
     {% endif %}
    {% else %}
     <span class="nolink">…</span>
@@ -19,28 +19,22 @@
  <table>
   <tr>
    <th>ID</th>
-   <th>Member</th>
-   <th>Item</th>
-   <th>Description</th>
-   <th>Category</th>
-   <th>Number</th>
-   <th>Status</th>
-   <th>FriPrice</th>
-   <th>SatPrice</th>
+   <th>Member Number</th>
+   <th>First Name</th>
+   <th>Last Name</th>
+   <th>Items</th>
+   <th>Activation</th>
    <th>Actions</th>
   </tr>
   {% for i in pagination.items %}
    <tr>
     <td>{{ i.ID }}</td>
     <td>{{ i.MemberNumber }}</td>
-    <td>{{ i.ItemNumber }}</td>
-    <td>{{ i.Description }}</td>
-    <td>{{ i.Category }}</td>
-    <td>{{ i.NumItems }}</td>
-    <td>{{ i.Status }}</td>
-    <td>{{ i.FridayPrice }} </td>
-    <td>{{ i.SaturdayPrice }}</td>
-    <td>View Audit</td>
+    <td>{{ i.FirstName }}</td>
+    <td>{{ i.LastName }}</td>
+    <td>#ofItems</td>
+    <td>{{ i.Activation }}</td>
+    <td>Actions</td>
    </tr>
   {% endfor %}
  </table>
