@@ -6,7 +6,6 @@ import pkg_resources
 
 from flask import Flask, render_template, request
 from flask_sqlalchemy import SQLAlchemy
-#from flask.ext.sqlalchemy import SQLAlchemy
 
 
 app = Flask(__name__)
@@ -107,15 +106,6 @@ class Account(db.Model):
 
    def __repr__(self):
       return '<Account %r>' % self.ID
-
-#@app.route('/')
-#def index():
-#   return '<!DOCTYPE html><html><body>Hello World<br><a href="/cakes">cakes</a></body></html>'
-
-@app.route('/hello/')
-@app.route('/hello/<name>')
-def hello(name=None):
-   return render_template('hello.html', name=name)
 
 @app.route('/')
 def index():
