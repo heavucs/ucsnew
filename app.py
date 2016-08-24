@@ -4,7 +4,7 @@
 __requires__ = ['jinja2 >= 2.4']
 import pkg_resources
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request
 from flask_sqlalchemy import SQLAlchemy
 #from flask.ext.sqlalchemy import SQLAlchemy
 
@@ -141,7 +141,10 @@ def account(pageid="account"):
       else:
          PhoneNumber = ""
       if request.form['Page']:
-         page = int(request.form['Page'])
+         if not request.form['Page'] == 'NaN':
+            page = int(request.form['Page'])
+         else:
+            page = 1
       else:
          page = 1
       pagination = ((Account.query
@@ -170,7 +173,10 @@ def item(pageid="item"):
       else:
          Description = ""
       if request.form['Page']:
-         page = int(request.form['Page'])
+         if not request.form['Page'] == 'NaN':
+            page = int(request.form['Page'])
+         else:
+            page = 1
       else:
          page = 1
       pagination = ((Item.query
