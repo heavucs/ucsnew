@@ -23,7 +23,7 @@
    <th>First Name</th>
    <th>Last Name</th>
    <th>Items</th>
-   <th>Activation</th>
+   <th>Activated</th>
    <th>Actions</th>
   </tr>
   {% for i in pagination.items %}
@@ -32,8 +32,8 @@
     <td>{{ i.MemberNumber }}</td>
     <td>{{ i.FirstName }}</td>
     <td>{{ i.LastName }}</td>
-    <td>#ofItems</td>
-    <td>{{ i.Activation }}</td>
+    <td>{{ i.Items }}</td>
+    <td>{{ i.Activated }}</td>
     <td>Actions</td>
    </tr>
   {% endfor %}
@@ -56,3 +56,6 @@
   {%- endfor %}
  </p><br><br>
 </div<>
+
+<p>{{ pagination.query }}</p>
+

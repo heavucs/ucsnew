@@ -7,7 +7,6 @@ import pkg_resources
 from flask import Flask, render_template, request
 from flask_sqlalchemy import SQLAlchemy
 
-
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://ucs:ucsonline@localhost/ucs_2016'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -17,7 +16,10 @@ class Item(db.Model):
    __tablename__ = 'Item'
    ID = db.Column(db.Integer, primary_key=True)
    ItemNumber = db.Column(db.Unicode(15), unique=True)
-   MemberNumber =  db.Column(db.Unicode(15))
+   #MemberNumber = db.relationship('Account', backref='MemberNumber', lazy='dynamic')
+   MemberNumber = db.Column(db.Unicode(15), db.ForeignKey('Account.MemberNumber'))
+   #Account_ID = db.Column(db.Unicode(15), db.ForeignKey('Account.ID'))
+   #MemberNumber = db.Column(db.Unicode(15))
    Description = db.Column(db.Unicode(50))
    Category = db.Column(db.Unicode(25))
    Subject = db.Column(db.Unicode(25))
@@ -63,7 +65,10 @@ class Item(db.Model):
 class Account(db.Model):
    __tablename__ = 'Account'
    ID = db.Column(db.Integer, primary_key=True)
-   MemberNumber = db.Column(db.Unicode(15), unique=True)
+   MemberNumber = db.Column(db.Unicode(15))
+   #MemberNumber = db.Column(db.Unicode(15), db.ForeignKey('Item.MemberNumber'))
+   #Items = db.relationship('Item', backref='MemberNumber', lazy='dynamic')
+   Items = db.relationship('Item')
    Established = db.Column(db.Date)
    FirstName = db.Column(db.Unicode(25))
    LastName = db.Column(db.Unicode(25))
@@ -137,12 +142,15 @@ def account(pageid="account"):
             page = 1
       else:
          page = 1
-      pagination = ((Account.query
+      pagination = (Account.query
+         .join(Item, Account.MemberNumber == Item.MemberNumber)
+         .with_entities(Account.ID,Account.MemberNumber,Account.FirstName,Account.LastName,db.func.count(Item.ID).label("Items"),Account.Activated)
          .filter(Account.ID.like("%s%s"%(ID,"%")))
          .filter(Account.MemberNumber.like("%s%s"%(MemberNumber,"%")))
          .filter(Account.LastName.like("%s%s"%(LastName,"%")))
-         .filter(Account.Phone.like("%s%s"%(PhoneNumber,"%"))))
-            .paginate(page=page, per_page=25, error_out=False))
+         .filter(Account.Phone.like("%s%s"%(PhoneNumber,"%")))
+         .group_by(Account.MemberNumber)
+         .paginate(page=page, per_page=25, error_out=False))
       return render_template('accountresults.html', pageid=pageid, page=page, pagination=pagination)
    else:
       return render_template('account.html', pageid=pageid)
@@ -169,11 +177,11 @@ def item(pageid="item"):
             page = 1
       else:
          page = 1
-      pagination = ((Item.query
+      pagination = (Item.query
          .filter(Item.ID.like("%s%s"%(ItemNumber,"%")))
          .filter(Item.MemberNumber.like("%s%s"%(AccountNumber,"%")))
-         .filter(Item.Description.like("%s%s%s"%("%",Description,"%"))))
-            .paginate(page=page, per_page=25, error_out=False))
+         .filter(Item.Description.like("%s%s%s"%("%",Description,"%")))
+         .paginate(page=page, per_page=25, error_out=False))
       return render_template('itemresults.html', pageid=pageid, page=page, pagination=pagination)
    else:
       return render_template('item.html', pageid=pageid)
