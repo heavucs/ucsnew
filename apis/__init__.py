@@ -1,6 +1,6 @@
 from flask_restplus import Api
 
-from .checkout import api as checkout
+from checkout import api as checkout
 
 api = Api(
    title='checkout',
@@ -8,5 +8,6 @@ api = Api(
    description='checkout application',
 )
 
+#api.add_namespace(checkout, path="/checkout")
 api.add_namespace(checkout)
 

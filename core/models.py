@@ -2,8 +2,22 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
+#class DictableBase:
+#   def as_dict(self, exclude_fields[]):
+#
+#      data_l = {}
+#
+#      for column in self.__table__.columns:
+#         if column.name in exclude_fields:
+#            continue
+#         data_l[column.name] = getattr(self, column.name)
+#
+#      return data_l
+
 class Item(db.Model):
    __tablename__ = 'Item'
+   __table_args = {'mysql_engine': 'InnoDB'}
+
    ID = db.Column(db.Integer, primary_key=True)
    ItemNumber = db.Column(db.Unicode(15), unique=True)
    #MemberNumber = db.relationship('Account', backref='MemberNumber', lazy='dynamic')
@@ -48,6 +62,10 @@ class Item(db.Model):
       self.Status = Status
       self.Deleted = Deleted
       self.Printed = Printed
+
+#   def as_api_dict(self):
+#      data_l = self.as_dict()
+#      return data_l
 
    def __repr__(self):
       return '<Item %r>' % self.ItemNumber
