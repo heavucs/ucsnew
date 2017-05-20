@@ -14,7 +14,7 @@ item_model = {
    'ISBN': fields.String(required=False, description='Book\'s ISBN number'),
    'Condition': fields.Integer(required=False, description='0:Poor,1:BelowAverage,2:Average,3:Good,4:New', example=4, min=0, max=4),
    'ConditionDetail': fields.String(required=False, description='Additional comments on condition'),
-   'NumItems': fields.Integer(required=True, description='Number of items included in "Item" e.g. a set of books', example=1, min=1),
+   #'NumItems': fields.Integer(required=True, description='Number of items included in "Item" e.g. a set of books', example=1, min=1),
    'FridayPrice': fields.Float(required=True, description='Friday price', min=1.00, example=1.00),
    'SaturdayPrice': fields.Float(required=True, description='Saturday price', min=1.00, example=1.00),
    'Donate': fields.Integer(required=True, description='0:False,1:True', min=0, max=1, example=0),
@@ -46,7 +46,6 @@ account_model = {
    'Admin': fields.Integer(required=True, description='0:False,1:True', example=0, min=0, max=1),
    'Browser': fields.String(required=False, description='Browser used by account holder'),
    'Notification': fields.String(required=False, description='I don\'t know what this is'),
-   'Items': fields.Integer(required=True, description='Number of items associated with Account'),
 }
 
 

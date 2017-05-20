@@ -51,10 +51,6 @@ class Item(db.Model):
       self.Deleted = Deleted
       self.Printed = Printed
 
-#   def as_api_dict(self):
-#      data_l = self.as_dict()
-#      return data_l
-
    def __repr__(self):
       return '<Item %r>' % self.ItemNumber
 
@@ -84,7 +80,7 @@ class Account(db.Model):
    Browser = db.Column(db.Unicode(128))
    Notification = db.Column(db.Integer)
 
-   def __init__(MemberNumber, Established, FirstName, LastName, Address, Address2, City, State, Zip, Phone, Email, Password, Question, Answer, ActivationCode, Activated, Admin, Browser, Notification):
+   def __init__(self, MemberNumber, Established, FirstName, LastName, Address, Address2, City, State, Zip, Phone, Email, Password, Question, Answer, ActivationCode, Activated, Admin, Browser, Notification):
       self.MemberNumber = MemberNumber
       self.Established = Established
       self.FirstName = FirstName

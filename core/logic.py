@@ -1,4 +1,5 @@
 from sqlalchemy.exc import IntegrityError
+import datetime
 from models import *
 from decimal import *
 
@@ -21,7 +22,8 @@ def get_items_list(q_itemnumber=None, q_membernumber=None, q_description=None, p
       .filter(Item.MemberNumber.like("%s%%" % q_membernumber))
       .filter(Item.Description.like("%%%s%%" % q_description))
       .paginate(page=page, per_page=per_page, error_out=False)
-      )
+   )
+
    app.logger.error("Items: %s" % pagination.items)
    app.logger.error("next_num: %s" % pagination.next_num)
    app.logger.error("page: %s" % pagination.page)
@@ -34,31 +36,33 @@ def get_items_list(q_itemnumber=None, q_membernumber=None, q_description=None, p
 
    return pagination.items
 
-#def create_item(q_membernumber,q_description,q_category,q_subject,q_publisher,q_year,q_isbn,q_condition,q_conditiondetail,q_numitems,q_fridayprice,q_saturdayprice,q_donate):
 def create_item(payload):
-   itemnumber = int(Item.query.filter(Item.MemberNumber == payload['MemberNumber']).count()) + 1
-   membernumber = str(payload['MemberNumber'])
-   description = str(payload['Description'])
-   category = str(payload['Category'])
-   subject = str(payload['Subject'])
-   publisher = str(payload['Publisher'])
-   year = str(payload['Year'])
-   isbn = str(payload['ISBN'])
-   condition = int(payload['Condition'])
-   conditiondetail = str(payload['ConditionDetail'])
-   numitems = int(payload['NumItems'])
-   fridayprice = Decimal(str(payload['FridayPrice'])).quantize(Decimal(".01"), ROUND_HALF_UP)
-   saturdayprice = Decimal(str(payload['SaturdayPrice'])).quantize(Decimal(".01"), ROUND_HALF_UP)
-   #fridayprice = float(q_fridayprice)
-   #saturdayprice = float(q_saturdayprice)
-   donate = bool(payload['Donate'])
-   checkedin = None
-   checkedout = None
-   status = 0
-   deleted = False
-   printed = False
-   
-   new_item = Item(itemnumber,membernumber,description,category,subject,publisher,year,isbn,condition,conditiondetail,numitems,fridayprice,saturdayprice,donate,checkedin,checkedout,status,deleted,printed)
+
+   itemnumber = 1 + int(Item.query
+      .filter(Item.MemberNumber == payload['MemberNumber'])
+      .count())
+
+   new_item = Item(
+      itemnumber,
+      str(payload['MemberNumber']),
+      str(payload['Description']),
+      str(payload['Category']),
+      str(payload['Subject']),
+      str(payload['Publisher']),
+      str(payload['Year']),
+      str(payload['ISBN']),
+      int(payload['Condition']),
+      str(payload['ConditionDetail']),
+      int(payload['NumItems']),
+      Decimal(str(payload['FridayPrice'])).quantize(Decimal(".01"), ROUND_HALF_UP),
+      Decimal(str(payload['SaturdayPrice'])).quantize(Decimal(".01"), ROUND_HALF_UP),
+      bool(payload['Donate']),
+      None,    # CheckedIn
+      None,    # CheckedOut
+      0,       # Status
+      False,   # Deleted
+      False,   # Printed
+   )
 
    try:
       db.session.add(new_item)
@@ -69,15 +73,15 @@ def create_item(payload):
          .filter(Item.ItemNumber == itemnumber)
          .first()
       )
-      app.logger.info("Created item %s: %s" % (new_item.ID,new_item.Description))
       # Created as an error since I'm not getting info messages
       app.logger.error("Created item %s: %s" % (new_item.ID,new_item.Description))
 
    except IntegrityError as e:
-      app.logger.warning("IntegrityError: %s" % str(e))
+      app.logger.error("IntegrityError: %s" % str(e))
       raise Forbidden("Unable to create resource: IntegrityError")
 
    return new_item
+
 
 def get_accounts_list(q_memberid=None, q_membernumber=None, q_lastname=None, q_phonenumber=None, page=1, per_page=25):
    if q_memberid == None: q_memberid = ""
@@ -94,22 +98,22 @@ def get_accounts_list(q_memberid=None, q_membernumber=None, q_lastname=None, q_p
 
    pagination = (Account.query
       .join(Item, Account.MemberNumber == Item.MemberNumber)
-      .with_entities(
-         Account.ID.label('ID').label('ID'),
-         Account.MemberNumber.label('MemberNumber'),
-         Account.FirstName.label('FirstName'),
-         Account.LastName.label('LastName'),
-         db.func.count(Item.ID).label('Items'),
-         Account.Activated.label('Activated'),
-         Account.Phone.label('Phone'),
-         )
+      #.with_entities(
+      #   Account.ID.label('ID').label('ID'),
+      #   Account.MemberNumber.label('MemberNumber'),
+      #   Account.FirstName.label('FirstName'),
+      #   Account.LastName.label('LastName'),
+      #   db.func.count(Item.ID).label('Items'),
+      #   Account.Activated.label('Activated'),
+      #   Account.Phone.label('Phone'),
+      #)
       .filter(Account.ID.like("%s%%" % q_memberid))
       .filter(Account.MemberNumber.like("%s%%" % q_membernumber))
       .filter(Account.LastName.like("%s%%" % q_lastname))
       .filter(Account.Phone.like("%s%%" % q_phonenumber))
       .group_by(Account.MemberNumber)
       .paginate(page=page, per_page=per_page, error_out=False)
-      )
+   )
 
    app.logger.error("Accounts: %s" % pagination.items)
    app.logger.error("next_num: %s" % pagination.next_num)
@@ -121,19 +125,61 @@ def get_accounts_list(q_memberid=None, q_membernumber=None, q_lastname=None, q_p
    # Using .with_entities in the sqlalchemy causes its output to be a list instead of an object
    # This class is used to reconstruct an object
    # Maybe there is a better way of doing this
-   class cols(object):
-      def __init__(self,ID,MemberNumber,FirstName,LastName,Items,Activated,Phone):
-         self.ID = int(ID)
-         self.MemberNumber = MemberNumber
-         self.FirstName = FirstName
-         self.LastName = LastName
-         self.Items = int(Items)
-         self.Activated = Activated
-         self.Phone = Phone
-   results = []
-   for i in pagination.items:
-      results.append(cols(i.ID,i.MemberNumber,i.FirstName,i.LastName,i.Items,i.Activated,i.Phone))
+   #class cols(object):
+   #   def __init__(self,ID,MemberNumber,FirstName,LastName,Items,Activated,Phone):
+   #      self.ID = int(ID)
+   #      self.MemberNumber = MemberNumber
+   #      self.FirstName = FirstName
+   #      self.LastName = LastName
+   #      self.Items = int(Items)
+   #      self.Activated = Activated
+   #      self.Phone = Phone
+   #results = []
+   #for i in pagination.items:
+   #   results.append(cols(i.ID,i.MemberNumber,i.FirstName,i.LastName,i.Items,i.Activated,i.Phone))
 
-   return results
+   #return results
+   return pagination.items
+
+def create_account(payload):
+
+   new_account = Account(
+      str(payload['MemberNumber']),
+      datetime.date.today(),   # Established
+      str(payload['FirstName']),
+      str(payload['LastName']),
+      str(payload['Address']),
+      str(payload['Address2']),
+      str(payload['City']),
+      str(payload['State']),
+      str(payload['Zip']),
+      str(payload['Phone']),
+      str(payload['Email']),
+      str(payload['Password']),
+      str(payload['Question']),
+      str(payload['Answer']),
+      str(''), # Activation Code
+      datetime.date.today(),# Activated
+      False,   # Admin
+      str(''), # Browser
+      str(''), # Notification
+   )
+   
+   try:
+      db.session.add(new_account)
+      db.session.commit()
+
+      new_account = (Account.query
+         .filter(Account.MemberNumber == payload['MemberNumber'])
+         .first()
+      )
+      # Created as an error since I'm not getting info messages
+      app.logger.error("Created account %s: %s %s" % (new_account.MemberNumber,new_account.FirstName,new_account.LastName))
+
+   except IntegrityError as e:
+      app.logger.error("IntegrityError: %s" % str(e))
+      raise Forbidden("Unable to create resource: IntegrityError")
+
+   return new_account
 
 
