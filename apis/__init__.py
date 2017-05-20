@@ -1,12 +1,12 @@
 from flask_restplus import Api
-from checkoutapi import api as checkoutapi
+from checkoutapi import ns as checkoutapi
 
 api = Api(
-   title='checkout',
+   title='Checkout',
    version='1.0',
-   description='checkout application',
+   description='checkout api',
 )
 
-#api.add_namespace(checkout, path="/checkout")
 api.add_namespace(checkoutapi, path="/checkoutapi")
+
 

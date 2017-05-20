@@ -1,27 +1,42 @@
-from flask_restplus import Namespace, Resource, fields
+from flask_restplus import Namespace, Resource, fields, Api
 from ucsnew.core.logic import *
 
 # For debug purposes (app.logger)
 from ucsnew.application import app
 
-api = Namespace('Checkout', Description='Checkout related functions')
+api = Api()
+ns = Namespace('Checkout', Description='Checkout related functions')
 
-from .api_models import account_model, item_model
-account = api.model('Account', account_model)
-item = api.model('Item', item_model)
+from .api_models import item_model, account_model
+item_model = ns.model('Item', item_model)
+account_model = ns.model('Account', account_model)
 
-@api.route('/items', methods=['GET'])
-@api.doc(params={
-   'query_itemnumber': 'Query Item Number',
-   'query_membernumber': 'Query Account Number',
-   'query_description': 'Query Description',
-   'page': 'Page number',
-   'per_page': 'Results per page',
-   })
-class ItemList(Resource):
-   @api.doc('list_items')
-   @api.marshal_list_with(item)
-   @api.response(200, 'OK', model=item)
+#class GenericView(Resource):
+#   pass
+
+@ns.route('/items', methods=['GET','POST'])
+class Item(Resource):
+   @ns.doc('create_item')
+   @ns.doc(body=item_model)
+   @ns.expect(item_model, validate=True)
+   @ns.marshal_with(item_model)
+   @ns.response(200, 'OK', model=item_model)
+   @ns.response(201, 'Created', model=item_model)
+   @ns.response(403, 'Forbidden')
+   def post(self):
+      '''Create Item'''
+      return create_item(api.payload), 201
+
+   @ns.doc(params={
+      'query_itemnumber': 'Query Item Number',
+      'query_membernumber': 'Query Account Number',
+      'query_description': 'Query Description',
+      'page': 'Page number',
+      'per_page': 'Results per page',
+      })
+   @ns.doc('list_items')
+   @ns.marshal_list_with(item_model)
+   @ns.response(200, 'OK', model=item_model)
    def get(self, query_itemnumber=None, query_membernumber=None, query_description=None, page=1, per_page=25):
       '''List Items'''
 
@@ -46,8 +61,8 @@ class ItemList(Resource):
       return results, 200
 
 
-@api.route('/accounts', methods=['GET'])
-@api.doc(params={
+@ns.route('/accounts', methods=['GET'])
+@ns.doc(params={
    'query_memberid': 'Query member\'s database ID',
    'query_membernumber': 'Query Member Number',
    'query_lastname': 'Query Member\'s last name',
@@ -55,14 +70,14 @@ class ItemList(Resource):
    'page': 'Page number',
    'per_page': 'Results per page',
    })
-class ItemList(Resource):
-   @api.doc('list_Accounts')
-   @api.marshal_list_with(account)
-   @api.response(200, 'OK', model=account)
+class AccountList(Resource):
+   @ns.doc('list_Accounts')
+   @ns.marshal_list_with(account_model)
+   @ns.response(200, 'OK', model=account_model)
    def get(self, query_memberid=None, query_membernumber=None, query_lastname=None, query_phonenumber=None, page=1, per_page=25):
-      '''List accounts'''
+      '''List Accounts'''
 
-      parser = api.parser()
+      parser = ns.parser()
 
       parser.add_argument('query_memberid', type=int, location='args')
       parser.add_argument('query_membernumber', type=str, location='args')
@@ -83,4 +98,5 @@ class ItemList(Resource):
       )
 
       return results, 200
+
 

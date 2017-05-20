@@ -1,24 +1,25 @@
+from sqlalchemy.exc import IntegrityError
 from models import *
-from collections import deque
+from decimal import *
 
 # For debug purposes (app.logger)
 from ucsnew.application import app
 
-def get_items_list(query_itemnumber=None, query_membernumber=None, query_description=None, page=1, per_page=25):
-   if query_itemnumber == None: query_itemnumber = ""
-   if query_membernumber == None: query_membernumber = ""
-   if query_description == None: query_description = ""
+def get_items_list(q_itemnumber=None, q_membernumber=None, q_description=None, page=1, per_page=25):
+   if q_itemnumber == None: q_itemnumber = ""
+   if q_membernumber == None: q_membernumber = ""
+   if q_description == None: q_description = ""
    if page == None: page = 1
    if per_page == None: per_page = 25
 
-   app.logger.error("query_itemnumber: %s" % query_itemnumber)
-   app.logger.error("query_membernumber: %s" % query_membernumber)
-   app.logger.error("query_description: %s" % query_description)
+   app.logger.error("q_itemnumber: %s" % q_itemnumber)
+   app.logger.error("q_membernumber: %s" % q_membernumber)
+   app.logger.error("q_description: %s" % q_description)
 
    pagination = (Item.query
-      .filter(Item.ID.like("%s%%" % query_itemnumber))
-      .filter(Item.MemberNumber.like("%s%%" % query_membernumber))
-      .filter(Item.Description.like("%%%s%%" % query_description))
+      .filter(Item.ID.like("%s%%" % q_itemnumber))
+      .filter(Item.MemberNumber.like("%s%%" % q_membernumber))
+      .filter(Item.Description.like("%%%s%%" % q_description))
       .paginate(page=page, per_page=per_page, error_out=False)
       )
    app.logger.error("Items: %s" % pagination.items)
@@ -33,19 +34,63 @@ def get_items_list(query_itemnumber=None, query_membernumber=None, query_descrip
 
    return pagination.items
 
+#def create_item(q_membernumber,q_description,q_category,q_subject,q_publisher,q_year,q_isbn,q_condition,q_conditiondetail,q_numitems,q_fridayprice,q_saturdayprice,q_donate):
+def create_item(payload):
+   itemnumber = int(Item.query.filter(Item.MemberNumber == payload['MemberNumber']).count()) + 1
+   membernumber = str(payload['MemberNumber'])
+   description = str(payload['Description'])
+   category = str(payload['Category'])
+   subject = str(payload['Subject'])
+   publisher = str(payload['Publisher'])
+   year = str(payload['Year'])
+   isbn = str(payload['ISBN'])
+   condition = int(payload['Condition'])
+   conditiondetail = str(payload['ConditionDetail'])
+   numitems = int(payload['NumItems'])
+   fridayprice = Decimal(str(payload['FridayPrice'])).quantize(Decimal(".01"), ROUND_HALF_UP)
+   saturdayprice = Decimal(str(payload['SaturdayPrice'])).quantize(Decimal(".01"), ROUND_HALF_UP)
+   #fridayprice = float(q_fridayprice)
+   #saturdayprice = float(q_saturdayprice)
+   donate = bool(payload['Donate'])
+   checkedin = None
+   checkedout = None
+   status = 0
+   deleted = False
+   printed = False
+   
+   new_item = Item(itemnumber,membernumber,description,category,subject,publisher,year,isbn,condition,conditiondetail,numitems,fridayprice,saturdayprice,donate,checkedin,checkedout,status,deleted,printed)
 
-def get_accounts_list(query_memberid=None, query_membernumber=None, query_lastname=None, query_phonenumber=None, page=1, per_page=25):
-   if query_memberid == None: query_memberid = ""
-   if query_membernumber == None: query_membernumber = ""
-   if query_lastname == None: query_lastname = ""
-   if query_phonenumber == None: query_phonenumber = ""
+   try:
+      db.session.add(new_item)
+      db.session.commit()
+
+      new_item = (Item.query
+         .filter(Item.MemberNumber == payload['MemberNumber'])
+         .filter(Item.ItemNumber == itemnumber)
+         .first()
+      )
+      app.logger.info("Created item %s: %s" % (new_item.ID,new_item.Description))
+      # Created as an error since I'm not getting info messages
+      app.logger.error("Created item %s: %s" % (new_item.ID,new_item.Description))
+
+   except IntegrityError as e:
+      app.logger.warning("IntegrityError: %s" % str(e))
+      raise Forbidden("Unable to create resource: IntegrityError")
+
+   return new_item
+
+def get_accounts_list(q_memberid=None, q_membernumber=None, q_lastname=None, q_phonenumber=None, page=1, per_page=25):
+   if q_memberid == None: q_memberid = ""
+   if q_membernumber == None: q_membernumber = ""
+   if q_lastname == None: q_lastname = ""
+   if q_phonenumber == None: q_phonenumber = ""
    if page == None: page = 1
    if per_page == None: per_page = 25
 
-   app.logger.error("query_memberid: %s" % query_memberid)
-   app.logger.error("query_membernumber: %s" % query_membernumber)
-   app.logger.error("query_lastname: %s" % query_lastname)
-   app.logger.error("query_phonenumber: %s" % query_phonenumber)
+   app.logger.error("query_memberid: %s" % q_memberid)
+   app.logger.error("query_membernumber: %s" % q_membernumber)
+   app.logger.error("query_lastname: %s" % q_lastname)
+   app.logger.error("query_phonenumber: %s" % q_phonenumber)
 
    pagination = (Account.query
       .join(Item, Account.MemberNumber == Item.MemberNumber)
@@ -58,10 +103,10 @@ def get_accounts_list(query_memberid=None, query_membernumber=None, query_lastna
          Account.Activated.label('Activated'),
          Account.Phone.label('Phone'),
          )
-      .filter(Account.ID.like("%s%%" % query_memberid))
-      .filter(Account.MemberNumber.like("%s%%" % query_membernumber))
-      .filter(Account.LastName.like("%s%%" % query_lastname))
-      .filter(Account.Phone.like("%s%%" % query_phonenumber))
+      .filter(Account.ID.like("%s%%" % q_memberid))
+      .filter(Account.MemberNumber.like("%s%%" % q_membernumber))
+      .filter(Account.LastName.like("%s%%" % q_lastname))
+      .filter(Account.Phone.like("%s%%" % q_phonenumber))
       .group_by(Account.MemberNumber)
       .paginate(page=page, per_page=per_page, error_out=False)
       )

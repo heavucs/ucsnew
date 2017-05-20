@@ -4,7 +4,7 @@ from flask_restplus import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
 
 class BasicConfig(object):
-   SQLALCHEMY_DATABASE_URI = 'mysql://ucs:ucsonline@localhost/ucs_2016'
+   SQLALCHEMY_DATABASE_URI = 'mysql://ucs:ucsonline@localhost/ucs_2017'
    SQLALCHEMY_TRACK_MODIFICATIONS = False
    LOGGING = True
    LOGGING_LEVEL = logging.DEBUG

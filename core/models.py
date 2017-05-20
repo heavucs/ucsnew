@@ -2,18 +2,6 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
-#class DictableBase:
-#   def as_dict(self, exclude_fields[]):
-#
-#      data_l = {}
-#
-#      for column in self.__table__.columns:
-#         if column.name in exclude_fields:
-#            continue
-#         data_l[column.name] = getattr(self, column.name)
-#
-#      return data_l
-
 class Item(db.Model):
    __tablename__ = 'Item'
    __table_args = {'mysql_engine': 'InnoDB'}
@@ -36,11 +24,11 @@ class Item(db.Model):
    FridayPrice = db.Column(db.Numeric())
    SaturdayPrice = db.Column(db.Numeric())
    Donate = db.Column(db.Boolean)
-   CheckedIn = db.Column(db.Date)
-   CheckedOut = db.Column(db.Date)
+#   CheckedIn = db.Column(db.Date)
+#   CheckedOut = db.Column(db.Date)
    Status = db.Column(db.Integer())
-   Deleted = db.Column(db.Boolean)
-   Printed = db.Column(db.Boolean)
+#   Deleted = db.Column(db.Boolean)
+#   Printed = db.Column(db.Boolean)
 
    def __init__(self, ItemNumber, MemberNumber, Description, Category, Subject, Publisher, Year, ISBN, Condition, ConditionDetail, NumItems, FridayPrice, SaturdayPrice, Donate, CheckedIn, CheckedOut, Status, Deleted, Printed):
       self.ItemNumber = ItemNumber
