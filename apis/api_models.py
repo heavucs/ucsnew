@@ -1,6 +1,7 @@
 from flask_restplus import fields
 
 RE_PHONENUMBER = r'^[0-9]{10}$'
+RE_ZIP = r'^[0-9]{5}$'
 
 item_model = {
    'ID': fields.String(readOnly=True, description='AutoIncremented ID'),
@@ -35,7 +36,7 @@ account_model = {
    'Address2': fields.String(required=True, description='Mailing address 2'),
    'City': fields.String(required=True, description='Mailing city'),
    'State': fields.String(required=True, description='Mailing state'),
-   'Zip': fields.String(required=True, description='Mailing zip'),
+   'Zip': fields.String(required=True, description='Mailing zip', example='12345', pattern=RE_ZIP),
    'Phone': fields.String(required=True, description='Contact number', example='1231231234', pattern=RE_PHONENUMBER),
    'Email': fields.String(required=True, descrpition='Contact e-mail'),
    'Password': fields.String(required=True, description='Account password'),
@@ -46,6 +47,15 @@ account_model = {
    'Admin': fields.Integer(required=True, description='0:False,1:True', example=0, min=0, max=1),
    'Browser': fields.String(required=False, description='Browser used by account holder'),
    'Notification': fields.String(required=False, description='I don\'t know what this is'),
+}
+
+checker_model = {
+   'ID': fields.Integer(readOnly=True, description='AutoIncremented ID'),
+   'LoginID': fields.String(required=True, description='LoginID'),
+   'FirstName': fields.String(required=True, description='First name'),
+   'LastName': fields.String(required=True, description='Last name'),
+   'Barcode': fields.Integer(required=True, description='Barcode'),
+   'Admin': fields.Integer(required=True, description='0:False,1:True', example=0, min=0, max=1, choices=(0,1)),
 }
 
 

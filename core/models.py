@@ -4,7 +4,7 @@ db = SQLAlchemy()
 
 class Item(db.Model):
    __tablename__ = 'Item'
-   __table_args = {'mysql_engine': 'InnoDB'}
+   __table_args__ = {'mysql_engine': 'InnoDB'}
 
    ID = db.Column(db.Integer, primary_key=True)
    ItemNumber = db.Column(db.Unicode(15), unique=True)
@@ -56,6 +56,8 @@ class Item(db.Model):
 
 class Account(db.Model):
    __tablename__ = 'Account'
+   __table_args__ = {'mysql_engine': 'InnoDB'}
+
    ID = db.Column(db.Integer, primary_key=True)
    MemberNumber = db.Column(db.Unicode(15))
    #MemberNumber = db.Column(db.Unicode(15), db.ForeignKey('Item.MemberNumber'))
@@ -103,4 +105,26 @@ class Account(db.Model):
 
    def __repr__(self):
       return '<Account %r>' % self.ID
+
+class Checker(db.Model):
+   __tablename__ = 'Checkers'
+   __table_args__ = {'mysql_engine': 'InnoDB'}
+
+   ID = db.Column(db.Integer, primary_key=True)
+   LoginID = db.Column(db.Unicode(32), unique=True, nullable=False)
+   FirstName = db.Column(db.Unicode(32), nullable=False)
+   LastName = db.Column(db.Unicode(32), nullable=False)
+   Barcode = db.Column(db.Integer, nullable=False)
+   Admin = db.Column(db.Boolean, nullable=False, default=False)
+   #Admin = db.Column(db.Integer(1), nullable=False, Default=0)
+
+   def __init__(self, LoginID, FirstName, LastName, Barcode, Admin):
+      self.LoginID = LoginID
+      self.FirstName = FirstName
+      self.LastName = LastName
+      self.Barcode = Barcode
+      self.Admin = Admin
+
+   def __repr__(self):
+      return '<Checker %r>' % self.ID
 

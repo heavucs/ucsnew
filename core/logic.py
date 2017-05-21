@@ -24,15 +24,15 @@ def get_items_list(q_itemnumber=None, q_membernumber=None, q_description=None, p
       .paginate(page=page, per_page=per_page, error_out=False)
    )
 
-   app.logger.error("Items: %s" % pagination.items)
+   app.logger.error("items: %s" % pagination.items)
    app.logger.error("next_num: %s" % pagination.next_num)
    app.logger.error("page: %s" % pagination.page)
    app.logger.error("per_page: %s" % pagination.per_page)
    app.logger.error("total: %s" % pagination.total)
    app.logger.error("query: %s" % pagination.query)
 
-   app.logger.error("Respons JSON: %s" % pagination.items)
-   app.logger.error("Respons JSON: %s" % type(pagination.items[0]))
+   app.logger.error("Response: %s" % pagination.items)
+   app.logger.error("Response: %s" % type(pagination.items[0]))
 
    return pagination.items
 
@@ -115,7 +115,7 @@ def get_accounts_list(q_memberid=None, q_membernumber=None, q_lastname=None, q_p
       .paginate(page=page, per_page=per_page, error_out=False)
    )
 
-   app.logger.error("Accounts: %s" % pagination.items)
+   app.logger.error("items: %s" % pagination.items)
    app.logger.error("next_num: %s" % pagination.next_num)
    app.logger.error("page: %s" % pagination.page)
    app.logger.error("per_page: %s" % pagination.per_page)
@@ -171,6 +171,61 @@ def create_account(payload):
 
       new_account = (Account.query
          .filter(Account.MemberNumber == payload['MemberNumber'])
+         .first()
+      )
+      # Created as an error since I'm not getting info messages
+      app.logger.error("Created account %s: %s %s" % (new_account.MemberNumber,new_account.FirstName,new_account.LastName))
+
+   except IntegrityError as e:
+      app.logger.error("IntegrityError: %s" % str(e))
+      raise Forbidden("Unable to create resource: IntegrityError")
+
+   return new_account
+
+
+def get_checkers_list(q_loginid=None, q_barcode=None, page=1, per_page=25):
+   if q_loginid == None: q_loginid = ""
+   if q_barcode == None: q_barcode = ""
+   if page == None: page = 1
+   if per_page == None: per_page = 25
+
+   app.logger.error("q_loginid: %s" % q_loginid)
+   app.logger.error("q_barcode: %s" % q_barcode)
+
+   pagination = (Checker.query
+      .filter(Checker.LoginID.like("%s%%" % q_loginid))
+      .filter(Checker.Barcode.like("%s%%" % q_barcode))
+      .paginate(page=page, per_page=per_page, error_out=False)
+   )
+
+   app.logger.error("items: %s" % pagination.items)
+   app.logger.error("next_num: %s" % pagination.next_num)
+   app.logger.error("page: %s" % pagination.page)
+   app.logger.error("per_page: %s" % pagination.per_page)
+   app.logger.error("total: %s" % pagination.total)
+   app.logger.error("query: %s" % pagination.query)
+
+   app.logger.error("Response: %s" % pagination.items)
+   app.logger.error("Response: %s" % type(pagination.items[0]))
+
+   return pagination.items
+
+def create_checker(payload):
+
+   new_checker = Checker(
+      str(payload['LoginID']),
+      str(payload['FirstName']),
+      str(payload['LastName']),
+      str(payload['Barcode']),
+      str(payload['Admin']),
+   )
+   
+   try:
+      db.session.add(new_checker)
+      db.session.commit()
+
+      new_checker = (Checker.query
+         .filter(Checker.LoginID == payload['LoginID'])
          .first()
       )
       # Created as an error since I'm not getting info messages
