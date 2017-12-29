@@ -8,5 +8,30 @@
 2. Setup git environment
 
     mkdir approot && cd approot && git clone git@github.com:heavucs/ucsnew.git approot
+
+4. Create database
+
+    [MYSQL]
+        create database ucsnew_YYYY;
+        grant all on ucsnew_YYYY.* to 'ucsnew_user'@'%' identified by 'password';
+        flush privileges;
+
+4. Configure application config
+
+    copy and modify app_sample.conf
+
+    e.g. $APPROOT/local/dev.conf
     
+5. Configure uwsgi
+
+    copy and modify uwsgi_sample.ini
+
+    e.g. /etc/uwsgi/apps-available/ucsnew.ini
+    chown appuser: /etc/uwsgi/apps-enabled/ucsnew.ini
+    ln -s /etc/uwsgi/apps-available/ucsnew.ini /etc/uwsgi/apps-enabled/ucsnew.ini
+
+6. Configure nginx
+
+    copy and modify nginx_sample.conf
+    e.g. /etc/nginx/conf.d/ucsnew.conf
 

@@ -1,6 +1,6 @@
 from sqlalchemy.exc import IntegrityError
 import datetime
-from models import *
+from .models import Item, Account, Checker
 from decimal import *
 
 # For debug purposes (app.logger)

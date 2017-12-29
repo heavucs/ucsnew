@@ -1,5 +1,5 @@
 from flask_restplus import Namespace, Resource, fields, Api
-from ucsnew.core.logic import *
+from ucsnew.logic import *
 
 # For debug purposes (app.logger)
 from ucsnew.application import app
@@ -7,8 +7,7 @@ from ucsnew.application import app
 api = Api()
 ns = Namespace('Checkout', Description='Checkout related functions')
 
-#from .api_models import item_model, account_model, 
-from .api_models import *
+from .api_models import item_model, account_model, checker_model
 item_model = ns.model('Item', item_model)
 account_model = ns.model('Account', account_model)
 checker_model = ns.model('Checker', checker_model)

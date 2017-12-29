@@ -1,6 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
+from .application import app
 
-db = SQLAlchemy()
+db = SQLAlchemy(app)
 
 class Item(db.Model):
    __tablename__ = 'Item'
@@ -9,9 +10,9 @@ class Item(db.Model):
    ID = db.Column(db.Integer, primary_key=True)
    ItemNumber = db.Column(db.Unicode(15), unique=True)
    #MemberNumber = db.relationship('Account', backref='MemberNumber', lazy='dynamic')
-   MemberNumber = db.Column(db.Unicode(15), db.ForeignKey('Account.MemberNumber'))
+   #MemberNumber = db.Column(db.Unicode(15), db.ForeignKey('Account.MemberNumber'))
    #Account_ID = db.Column(db.Unicode(15), db.ForeignKey('Account.ID'))
-   #MemberNumber = db.Column(db.Unicode(15))
+   MemberNumber = db.Column(db.Unicode(16))
    Description = db.Column(db.Unicode(50))
    Category = db.Column(db.Unicode(25))
    Subject = db.Column(db.Unicode(25))
@@ -62,7 +63,7 @@ class Account(db.Model):
    MemberNumber = db.Column(db.Unicode(15))
    #MemberNumber = db.Column(db.Unicode(15), db.ForeignKey('Item.MemberNumber'))
    #Items = db.relationship('Item', backref='MemberNumber', lazy='dynamic')
-   Items = db.relationship('Item')
+   #Items = db.relationship('Item')
    Established = db.Column(db.Date)
    FirstName = db.Column(db.Unicode(25))
    LastName = db.Column(db.Unicode(25))
