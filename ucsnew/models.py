@@ -1,131 +1,134 @@
 from flask_sqlalchemy import SQLAlchemy
 from .application import app
+from decimal import Decimal, ROUND_HALF_UP
+import datetime
 
 db = SQLAlchemy(app)
 
+class Member(db.Model):
+    __tablename__ = 'members'
+    __table_args__ = {'mysql_engine': 'InnoDB'}
+
+    id = db.Column(db.Integer, unique=True, autoincrement=True)
+    membernumber = db.Column(db.String(255), primary_key=True)
+    established = db.Column(db.Date)
+    firstname = db.Column(db.String(255))
+    lastname = db.Column(db.String(255))
+    address = db.Column(db.String(255))
+    address2 = db.Column(db.String(255))
+    city = db.Column(db.String(255))
+    state = db.Column(db.String(2))
+    zipcode = db.Column(db.String(5))
+    phone = db.Column(db.String(10))
+    email = db.Column(db.String(255))
+    password = db.Column(db.String(255))
+    question = db.Column(db.String(255))
+    answer = db.Column(db.String(255))
+    activationcode = db.Column(db.String(255))
+    activated = db.Column(db.Date)
+    admin = db.Column(db.String(1), default='0')
+    browser = db.Column(db.String(255))
+    notification = db.Column(db.String(1))
+
+    def __init__(self, membernumber, firstname, lastname, address, address2, city, state, zipcode, phone, email, password, question, answer, activationcode, admin):
+        self.membernumber = str(membernumber)
+        self.established = datetime.datetime.now().date()
+        self.firstname = str(firstname)
+        self.lastname = str(lastname)
+        self.address = str(address)
+        self.address2 = str(address2)
+        self.city = str(city)
+        self.state = str(state)
+        self.zipcode = str(zipcode)
+        self.phone = str(phone)
+        self.email = str(email)
+        self.password = str(password)
+        self.question = str(question)
+        self.answer = str(answer)
+        self.activationcode = str(activationcode)
+        self.admin = str(admin)
+
+    def as_api_dict(self):
+
+        resource_d = self.as_dict()
+
+        return resource_d
+
+    def __repr__(self):
+        return "<Member %s>" % self.membernumber
+
 class Item(db.Model):
-   __tablename__ = 'Item'
-   __table_args__ = {'mysql_engine': 'InnoDB'}
+    __tablename__ = 'items'
+    __table_args__ = {'mysql_engine': 'InnoDB'}
 
-   ID = db.Column(db.Integer, primary_key=True)
-   ItemNumber = db.Column(db.Unicode(15), unique=True)
-   #MemberNumber = db.relationship('Account', backref='MemberNumber', lazy='dynamic')
-   #MemberNumber = db.Column(db.Unicode(15), db.ForeignKey('Account.MemberNumber'))
-   #Account_ID = db.Column(db.Unicode(15), db.ForeignKey('Account.ID'))
-   MemberNumber = db.Column(db.Unicode(16))
-   Description = db.Column(db.Unicode(50))
-   Category = db.Column(db.Unicode(25))
-   Subject = db.Column(db.Unicode(25))
-   Publisher = db.Column(db.Unicode(50))
-   Year = db.Column(db.Unicode(4))
-   ISBN = db.Column(db.Unicode(50))
-   Condition = db.Column(db.Integer())
-   ConditionDetail = db.Column(db.Unicode(128))
-   NumItems = db.Column(db.Integer())
-   FridayPrice = db.Column(db.Numeric())
-   SaturdayPrice = db.Column(db.Numeric())
-   Donate = db.Column(db.Boolean)
-#   CheckedIn = db.Column(db.Date)
-#   CheckedOut = db.Column(db.Date)
-   Status = db.Column(db.Integer())
-#   Deleted = db.Column(db.Boolean)
-#   Printed = db.Column(db.Boolean)
+    id = db.Column(db.Integer, unique=True, autoincrement=True)
+    itemnumber = db.Column(db.String(255), primary_key=True)
+    description = db.Column(db.String(255))
+    category = db.Column(db.String(255))
+    subject = db.Column(db.String(255))
+    publisher = db.Column(db.String(255))
+    year = db.Column(db.String(4))
+    isbn = db.Column(db.String(16))
+    condition = db.Column(db.String(1))
+    conditiondetail = db.Column(db.String(255))
+    numitems = db.Column(db.String(4))
+    price = db.Column(db.DECIMAL(11,4))
+    discountprice = db.Column(db.DECIMAL(11,4))
+    donate = db.Column(db.String(1), default='0')
+    checkedin = db.Column(db.Date)
+    checkedout = db.Column(db.Date)
+    status = db.Column(db.String(1), default='0')
+    deleted = db.Column(db.String(1))
 
-   def __init__(self, ItemNumber, MemberNumber, Description, Category, Subject, Publisher, Year, ISBN, Condition, ConditionDetail, NumItems, FridayPrice, SaturdayPrice, Donate, CheckedIn, CheckedOut, Status, Deleted, Printed):
-      self.ItemNumber = ItemNumber
-      self.MemberNumber = MemberNumber
-      self.Description = Description
-      self.Category = Category
-      self.Subject = Subject
-      self.Publisher = Publisher
-      self.Year = Year
-      self.ISBN = ISBN
-      self.Condition = Condition
-      self.ConditionDetail = ConditionDetail
-      self.NumItems = NumItems
-      self.FridayPrice = FridayPrice
-      self.SaturdayPrice = SaturdayPrice
-      self.Donate = Donate
-      self.CheckedIn = CheckedIn
-      self.CheckedOut = CheckedOut
-      self.Status = Status
-      self.Deleted = Deleted
-      self.Printed = Printed
+    members_membernumber = db.Column(db.String(255), db.ForeignKey('members.membernumber'), nullable=False)
+    membernumber = db.relationship(Member, backref=db.backref('members', uselist=True,
+                                cascade='all, delete-orphan'))
 
-   def __repr__(self):
-      return '<Item %r>' % self.ItemNumber
+    def __init__(self, itemnumber, membernumber, description, category, subject, publisher, year, isbn, condition, conditiondetail, numitems, price, discountprice, donate):
+        itemnumber = str(itemnumber)
+        membernumber = str(membernumber)
+        description = str(description)
+        category = str(category)
+        subject = str(subject)
+        publisher = str(publisher)
+        year = str(year)
+        isbn = str(isbn)
+        condition = str(condition)
+        conditiondetail = str(conditiondetail)
+        numitems = str(numitems)
+        price = Decimal(price).quantize(Decimal('0.0001', rounding=ROUND_HALF_UP))
+        discountprice = Decimal(discountprice).quantize(Decimal('0.0001', rounding=ROUND_HALF_UP))
+        donate = str(donate)
 
-class Account(db.Model):
-   __tablename__ = 'Account'
-   __table_args__ = {'mysql_engine': 'InnoDB'}
+    def as_api_dict(self):
 
-   ID = db.Column(db.Integer, primary_key=True)
-   MemberNumber = db.Column(db.Unicode(15))
-   #MemberNumber = db.Column(db.Unicode(15), db.ForeignKey('Item.MemberNumber'))
-   #Items = db.relationship('Item', backref='MemberNumber', lazy='dynamic')
-   #Items = db.relationship('Item')
-   Established = db.Column(db.Date)
-   FirstName = db.Column(db.Unicode(25))
-   LastName = db.Column(db.Unicode(25))
-   Address = db.Column(db.Unicode(128))
-   Address2 = db.Column(db.Unicode(128))
-   City = db.Column(db.Unicode(128))
-   State = db.Column(db.Unicode(2))
-   Zip = db.Column(db.Unicode(5))
-   Phone = db.Column(db.Unicode(10))
-   Email = db.Column(db.Unicode(128))
-   Password = db.Column(db.Unicode(32))
-   Question = db.Column(db.Unicode(50))
-   Answer = db.Column(db.Unicode(50))
-   ActivationCode = db.Column(db.Unicode(128))
-   Activated = db.Column(db.Date)
-   Admin = db.Column(db.Boolean)
-   Browser = db.Column(db.Unicode(128))
-   Notification = db.Column(db.Integer)
+        resource_d = self.as_dict()
+        resource_d['membernumber'] = self.membernumber.membernumber
 
-   def __init__(self, MemberNumber, Established, FirstName, LastName, Address, Address2, City, State, Zip, Phone, Email, Password, Question, Answer, ActivationCode, Activated, Admin, Browser, Notification):
-      self.MemberNumber = MemberNumber
-      self.Established = Established
-      self.FirstName = FirstName
-      self.LastName = LastName
-      self.Address = Address
-      self.Address2 = Address2
-      self.City = City
-      self.State = State
-      self.Zip = Zip
-      self.Phone = Phone
-      self.Email = Email
-      self.Password = Password
-      self.Question = Question
-      self.Answer = Answer
-      self.ActivationCode = ActivationCode
-      self.Activated = Activated
-      self.Admin = Admin
-      self.Browser = Browser
-      self.Notification = Notification
+        return resource_d
 
-   def __repr__(self):
-      return '<Account %r>' % self.ID
+    def __repr__(self):
+        return "<Item %r>" % self.ItemNumber
 
-class Checker(db.Model):
-   __tablename__ = 'Checkers'
-   __table_args__ = {'mysql_engine': 'InnoDB'}
-
-   ID = db.Column(db.Integer, primary_key=True)
-   LoginID = db.Column(db.Unicode(32), unique=True, nullable=False)
-   FirstName = db.Column(db.Unicode(32), nullable=False)
-   LastName = db.Column(db.Unicode(32), nullable=False)
-   Barcode = db.Column(db.Integer, nullable=False)
-   Admin = db.Column(db.Boolean, nullable=False, default=False)
-   #Admin = db.Column(db.Integer(1), nullable=False, Default=0)
-
-   def __init__(self, LoginID, FirstName, LastName, Barcode, Admin):
-      self.LoginID = LoginID
-      self.FirstName = FirstName
-      self.LastName = LastName
-      self.Barcode = Barcode
-      self.Admin = Admin
-
-   def __repr__(self):
-      return '<Checker %r>' % self.ID
+#class Checker(db.Model):
+#    __tablename__ = 'Checkers'
+#    __table_args__ = {'mysql_engine': 'InnoDB'}
+#
+#    ID = db.Column(db.Integer, primary_key=True)
+#    LoginID = db.Column(db.Unicode(32), unique=True, nullable=False)
+#    FirstName = db.Column(db.Unicode(32), nullable=False)
+#    LastName = db.Column(db.Unicode(32), nullable=False)
+#    Barcode = db.Column(db.Integer, nullable=False)
+#    Admin = db.Column(db.Boolean, nullable=False, default=False)
+#    #Admin = db.Column(db.Integer(1), nullable=False, Default=0)
+#
+#    def __init__(self, LoginID, FirstName, LastName, Barcode, Admin):
+#        self.LoginID = LoginID
+#        self.FirstName = FirstName
+#        self.LastName = LastName
+#        self.Barcode = Barcode
+#        self.Admin = Admin
+#
+#    def __repr__(self):
+#        return '<Checker %r>' % self.ID
 

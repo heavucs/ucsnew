@@ -4,7 +4,7 @@ from flask_restplus import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
 
 class BasicConfig(object):
-    SQLALCHEMY_DATABASE_URI = ''
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     IGNORE_SQLITE_WARNINGS = False
 
@@ -56,6 +56,7 @@ def create_app(app):
     return app
 
 app = Flask(__name__)
+load_configuration(app)
 app = create_app(app)
 
 if __name__ == '__main__':
