@@ -4,7 +4,6 @@ RE_PHONENUMBER = r'^[0-9]{10}$'
 RE_ZIP = r'^[0-9]{5}$'
 
 item_model = {
-   'id': fields.String(readOnly=True, description='AutoIncremented ID'),
    'itemnumber': fields.String(readOnly=True, description='ItemNumber within Account'),
    'membernumber': fields.String(required=True, description='Account Number'),
    'description': fields.String(required=True, description='Description of the item'),
@@ -26,8 +25,9 @@ item_model = {
    'printed': fields.Integer(required=False, description='0:False,1:True', min=0, max=1, example=0),
 }
 
+delete_item_model = {}
+
 member_model = {
-   'id': fields.Integer(readOnly=True, description='AutoIncremented ID'),
    'membernumber': fields.String(required=True, description='Account Number'),
    'established': fields.DateTime(required=True, description='DateTime account was created'),
    'firstname': fields.String(required=True, description='First name associated with Account'),
@@ -49,13 +49,14 @@ member_model = {
    'notification': fields.String(required=False, description='I don\'t know what this is'),
 }
 
-checker_model = {
-   'id': fields.Integer(readOnly=True, description='AutoIncremented ID'),
-   'loginid': fields.String(required=True, description='LoginID'),
-   'firstname': fields.String(required=True, description='First name'),
-   'lastname': fields.String(required=True, description='Last name'),
-   'barcode': fields.Integer(required=True, description='Barcode'),
-   'admin': fields.Integer(required=True, description='0:False,1:True', example=0, min=0, max=1, choices=(0,1)),
+delete_member_model = {}
+
+user_model = {
+   'username': fields.String(required=False, description='username'),
+   'password': fields.String(required=False, description='password'),
+   'firstname': fields.String(required=False, description='First name'),
+   'lastname': fields.String(required=False, description='Last name'),
 }
 
+delete_user_model = {}
 

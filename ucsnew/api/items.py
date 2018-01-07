@@ -1,4 +1,5 @@
 from flask_restplus import Api, Resource, fields
+from ..application import http_auth
 
 api = Api()
 ns = api.namespace('items', description="Items for sale")
@@ -17,30 +18,32 @@ item_parser.add_argument('per_page', type=int, location='args', required=False, 
 
 @ns.route('', methods=['GET','POST'])
 class Item(Resource):
-   @ns.doc('list_items')
-   @ns.doc(parser=item_parser, validate=True)
-   @ns.marshal_with(item_model, as_list=True)
-   @ns.response(200, 'OK', model=item_model)
-   def get(self, itemnumber=None, membernumber=None, description=None, page=1, per_page=25):
-      '''List Items'''
+    @http_auth.login_required
+    @ns.doc('list_items')
+    @ns.doc(parser=item_parser, validate=True)
+    @ns.marshal_with(item_model, as_list=True)
+    @ns.response(200, 'OK', model=item_model)
+    def get(self, itemnumber=None, membernumber=None, description=None, page=1, per_page=25):
+        '''List Items'''
 
-      args = item_parser.parse_args()
-      results = get_items_list(
-         args['itemnumber'],
-         args['membernumber'],
-         args['description'],
-         args['page'],
-         args['per_page'],
-      )
+        args = item_parser.parse_args()
+        results = get_items_list(
+            args['itemnumber'],
+            args['membernumber'],
+            args['description'],
+            args['page'],
+            args['per_page'],
+        )
 
-      return results, 200
+        return results, 200
 
-   @ns.doc('create_item')
-   @ns.doc(body=item_model, validate=True)
-   @ns.marshal_with(item_model, code=201)
-   @ns.response(201, 'Created', model=item_model)
-   @ns.response(403, 'Forbidden')
-   def post(self):
-      '''Create Item'''
-      return create_item(api.payload), 201
+    @http_auth.login_required
+    @ns.doc('create_item')
+    @ns.doc(body=item_model, validate=True)
+    @ns.marshal_with(item_model, code=201)
+    @ns.response(201, 'Created', model=item_model)
+    @ns.response(403, 'Forbidden')
+    def post(self):
+        '''Create Item'''
+        return create_item(api.payload), 201
 

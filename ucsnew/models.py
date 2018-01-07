@@ -5,11 +5,19 @@ import datetime
 
 db = SQLAlchemy(app)
 
-class Member(db.Model):
+class DictableBase:
+
+    def as_dict(self):
+        dict = {}
+        for c in self.__table__.columns:
+            dict[c.name] = getattr(self, c.name)
+
+        return dict
+
+class Member(db.Model, DictableBase):
     __tablename__ = 'members'
     __table_args__ = {'mysql_engine': 'InnoDB'}
 
-    id = db.Column(db.Integer, unique=True, autoincrement=True)
     membernumber = db.Column(db.String(255), primary_key=True)
     established = db.Column(db.Date)
     firstname = db.Column(db.String(255))
@@ -57,11 +65,10 @@ class Member(db.Model):
     def __repr__(self):
         return "<Member %s>" % self.membernumber
 
-class Item(db.Model):
+class Item(db.Model, DictableBase):
     __tablename__ = 'items'
     __table_args__ = {'mysql_engine': 'InnoDB'}
 
-    id = db.Column(db.Integer, unique=True, autoincrement=True)
     itemnumber = db.Column(db.String(255), primary_key=True)
     description = db.Column(db.String(255))
     category = db.Column(db.String(255))
@@ -103,32 +110,60 @@ class Item(db.Model):
     def as_api_dict(self):
 
         resource_d = self.as_dict()
-        resource_d['membernumber'] = self.membernumber.membernumber
+        resource_d['membernumber'] = self.members.membernumber
 
         return resource_d
 
     def __repr__(self):
         return "<Item %r>" % self.ItemNumber
 
-#class Checker(db.Model):
-#    __tablename__ = 'Checkers'
-#    __table_args__ = {'mysql_engine': 'InnoDB'}
-#
-#    ID = db.Column(db.Integer, primary_key=True)
-#    LoginID = db.Column(db.Unicode(32), unique=True, nullable=False)
-#    FirstName = db.Column(db.Unicode(32), nullable=False)
-#    LastName = db.Column(db.Unicode(32), nullable=False)
-#    Barcode = db.Column(db.Integer, nullable=False)
-#    Admin = db.Column(db.Boolean, nullable=False, default=False)
-#    #Admin = db.Column(db.Integer(1), nullable=False, Default=0)
-#
-#    def __init__(self, LoginID, FirstName, LastName, Barcode, Admin):
-#        self.LoginID = LoginID
-#        self.FirstName = FirstName
-#        self.LastName = LastName
-#        self.Barcode = Barcode
-#        self.Admin = Admin
-#
-#    def __repr__(self):
-#        return '<Checker %r>' % self.ID
+class User(db.Model, DictableBase):
+    __tablename__ = 'users'
+    __table_args__ = {'mysql_engine': 'InnoDB'}
+
+    username = db.Column(db.String(64), primary_key=True, nullable=False)
+    password = db.Column(db.String(255), nullable=False)
+    firstname = db.Column(db.String(255))
+    lastname = db.Column(db.String(255))
+
+    def __init__(self, username, password, firstname, lastname):
+        self.username = str(username)
+        self.password = str(password)
+        self.firstname = str(firstname)
+        self.lastname = str(lastname)
+
+    def as_api_dict(self):
+
+        resource_d = self.as_dict()
+
+        return resource_d
+
+    def __repr__(self):
+        return '<User %r>' % self.username
+
+class UserRoles(db.Model, DictableBase):
+    __tablename__ = 'userroles'
+    __table_args__ = {'mysql_engine': 'InnoDB'}
+
+    #id = db.Column(db.Integer, primary_key=True, auto_increment=True)
+    #username = db.Column(db.String(64), nullable=False)
+    rolename = db.Column(db.String(255), primary_key=True, nullable=False)
+
+    users_username = db.Column(db.String(64), db.ForeignKey('users.username'), primary_key=True, nullable=False)
+    username = db.relationship(User, backref=db.backref('users', uselist=True,
+                                cascade='all, delete-orphan'))
+
+    def __init__(self, username, rolename):
+        self.username = str(username)
+        self.rolename = str(rolename)
+
+    def as_api_dict(self):
+
+        resource_d = self.as_dict()
+        resource_d['username'] = self.users.username
+
+        return resource_d
+
+    def __repr__(self):
+        return '<Role(user:%s,role:%s)>' % (self.username, self.rolename)
 

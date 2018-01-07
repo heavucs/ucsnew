@@ -3,9 +3,11 @@
 1. Setup new python virtual environment
     [https://docs.python.org/3/library/venv.html#module-venv|28.3. venv — Creation of virtual environments]
 
-    python3 -m venv /opt/netdisk/virtualenv/ucsnew
+    python3 -m venv /var/www/virtualenv/ucsnew
+    cd /var/www/virtualenv/ucsnew
+    source bin/activate
     pip install -U pip
-    pip install flask flask-restplus flask-sqlalchemy
+    pip install flask flask-restplus flask-sqlalchemy flask_httpauth
 
 2. Setup git environment
 
@@ -23,8 +25,32 @@
     copy and modify app_sample.conf
 
     e.g. $APPROOT/local/dev.conf
+
+5. Create admin account
+
+    FIXME:
+
+    a. Generate hash
+        $ python
+        Python 3.5.2 (default, Nov 23 2017, 16:37:01) 
+        [GCC 5.4.0 20160609] on linux
+        Type "help", "copyright", "credits" or "license" for more information.
+        >>> from werkzeug.security import generate_password_hash
+        >>> generate_password_hash('password','pbkdf2:sha1:2000')
+        'pbkdf2:sha1:2000$BHgps4XH$dac5abfd3b6bda688b3f507c9a50efe99a952ba0' 
+        >>> quit()
+
+    b. stash resulting hash in local/admin.passwd
+
+    c. chmod 600 local/admin.passwd
+
+6. Generate instance secret
+
+    FIXME:
+    cat /dev/urandom | head -c32 > local/secret.key
+    chmod 600 local/secret.key
     
-5. Configure uwsgi
+7. Configure uwsgi
 
     copy and modify uwsgi_sample.ini
 
@@ -32,7 +58,9 @@
     chown appuser: /etc/uwsgi/apps-enabled/ucsnew.ini
     ln -s /etc/uwsgi/apps-available/ucsnew.ini /etc/uwsgi/apps-enabled/ucsnew.ini
 
-6. Configure nginx
+    mkdir /var/local/uwsgi/
+
+8. Configure nginx
 
     copy and modify nginx_sample.conf
     e.g. /etc/nginx/conf.d/ucsnew.conf

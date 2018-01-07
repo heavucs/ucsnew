@@ -1,15 +1,18 @@
 from sqlalchemy.exc import IntegrityError
 import datetime
-from .models import Member, Item
-#from .models import Item, Account, Checker
+from .models import db, Member, Item, User
 from decimal import Decimal
 #from collections import deque
 
-# For debug purposes (app.logger)
+from werkzeug.exceptions import BadRequest      # 400
+from werkzeug.exceptions import Unauthorized    # 401
+from werkzeug.exceptions import Forbidden       # 403
+from werkzeug.exceptions import NotFound        # 404
+
 from ucsnew.application import app
 
 
-### Business logic for Item DAOs
+### Business logic for Member DAOs
 
 def get_members_list(q_memberid=None, q_membernumber=None, q_lastname=None, q_phonenumber=None, page=1, per_page=25):
    if q_memberid == None: q_memberid = ""
@@ -197,58 +200,116 @@ def create_item(payload):
    return new_item
 
 
-def get_checkers_list(q_loginid=None, q_barcode=None, page=1, per_page=25):
-   if q_loginid == None: q_loginid = ""
-   if q_barcode == None: q_barcode = ""
-   if page == None: page = 1
-   if per_page == None: per_page = 25
+### Business logic for Item DAOs
 
-   app.logger.error("q_loginid: %s" % q_loginid)
-   app.logger.error("q_barcode: %s" % q_barcode)
+from werkzeug.security import check_password_hash, generate_password_hash
 
-   pagination = (Checker.query
-      .filter(Checker.LoginID.like("%s%%" % q_loginid))
-      .filter(Checker.Barcode.like("%s%%" % q_barcode))
-      .paginate(page=page, per_page=per_page, error_out=False)
-   )
+def get_users_list():
 
-   app.logger.error("items: %s" % pagination.items)
-   app.logger.error("next_num: %s" % pagination.next_num)
-   app.logger.error("page: %s" % pagination.page)
-   app.logger.error("per_page: %s" % pagination.per_page)
-   app.logger.error("total: %s" % pagination.total)
-   app.logger.error("query: %s" % pagination.query)
+    users_l = User.query.all()
 
-   app.logger.error("Response: %s" % pagination.items)
-   app.logger.error("Response: %s" % type(pagination.items[0]))
+    return users_l
 
-   return pagination.items
+def get_user(username):
 
-def create_checker(payload):
+    db_user = User.query.filter(User.username == username).first()
 
-   new_checker = Checker(
-      str(payload['LoginID']),
-      str(payload['FirstName']),
-      str(payload['LastName']),
-      str(payload['Barcode']),
-      str(payload['Admin']),
-   )
+    if db_user is not None:
+        return db_user.as_api_dict()
+    else:
+        raise NotFound("Resource user %s not found" % username)
+
+def create_user(payload):
+
+    new_user = {
+            'username': str(payload['username']),
+            'password': generate_password_hash(str(payload['password']), app.config['PW_HASH']),
+            'firstname': str(payload['firstname']),
+            'lastname': str(payload['lastname']),
+            }
+
+    db_user = User(
+        new_user['username'],
+        new_user['password'],
+        new_user['firstname'],
+        new_user['lastname'],
+    )
    
-   try:
-      db.session.add(new_checker)
-      db.session.commit()
+    try:
+        db.session.add(db_user)
+        db.session.commit()
 
-      new_checker = (Checker.query
-         .filter(Checker.LoginID == payload['LoginID'])
-         .first()
-      )
-      # Created as an error since I'm not getting info messages
-      app.logger.error("Created account %s: %s %s" % (new_account.MemberNumber,new_account.FirstName,new_account.LastName))
+        db_user = (User.query
+            .filter(User.username == new_user['username'])
+            .first()
+        )
 
-   except IntegrityError as e:
-      app.logger.error("IntegrityError: %s" % str(e))
-      raise Forbidden("Unable to create resource: IntegrityError")
+        app.logger.info("Created user %s" % db_user.username)
+        # Created as an error since I'm not getting info messages
+        app.logger.error("Created user %s" % (db_user.username))
 
-   return new_account
+    except IntegrityError as e:
+        app.logger.error("IntegrityError: %s" % str(e))
+        raise Forbidden("Unable to create resource: IntegrityError")
+
+    return db_user
+
+def replace_user(auth_user, old_username, payload):
+
+    db_user = User.query.filter(User.username == old_username).first()
+    if not db_user:
+        raise NotFound
+
+    if 'password' in payload:
+        payload['password'] = generate_password_hash(str(payload['password']), app.config['PW_HASH'])
+
+    new_user = {
+            'username': payload.get('username', db_user.username),
+            'password': payload.get('password', db_user.password),
+            'firstname': payload.get('firstname', db_user.firstname),
+            'lastname': payload.get('lastname', db_user.lastname),
+            }
+
+    db_user.username = new_user.get('username',db_user.username)
+    db_user.password = new_user.get('password',db_user.password)
+    db_user.firstname = new_user.get('firstname',db_user.firstname)
+    db_user.lastname = new_user.get('lastname',db_user.lastname)
+   
+    try:
+        db.session.commit()
+
+        db_user = User.query.filter(User.username == new_user['username']).first()
+
+        app.logger.info("Replaced user %s with %s" % \
+                (old_username, db_user.username))
+        # Created as an error since I'm not getting info messages
+        app.logger.error("Replaced user %s with %s" % \
+                (old_username, db_user.username))
+
+    except IntegrityError as e:
+        app.logger.error("IntegrityError: %s" % str(e))
+        raise Forbidden("Unable to replace resource: IntegrityError")
+
+    return db_user
+
+def delete_user(auth_user, old_username, payload):
+
+    db_user = User.query.filter(User.username == old_username).first()
+    if not db_user:
+        raise NotFound
+
+    try:
+        db.session.delete(db_user)
+        db.session.commit()
+
+        app.logger.info("Deleted user %s" % old_username)
+        # Created as an error since I'm not getting info messages
+        app.logger.error("Deleted user %s" % old_username)
+
+    except IntegrityError as e:
+        app.logger.error("IntegrityError: %s" % str(e))
+        raise Forbidden("Unable to delete resource: IntegrityError")
+
+    return {'message': "User %s successfully deleted by %s" % (old_username, auth_user)}
 
 
