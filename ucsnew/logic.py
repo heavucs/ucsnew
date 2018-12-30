@@ -1,15 +1,22 @@
-from sqlalchemy.exc import IntegrityError
 import datetime
-from .models import db, Member, Item, User
+import MySQLdb as sql
+import datetime
 from decimal import Decimal
+
 #from collections import deque
 
+from .models import db
+from .models import Member
+from .models import Item
+from .models import User
+
+from sqlalchemy.exc import IntegrityError
 from werkzeug.exceptions import BadRequest      # 400
 from werkzeug.exceptions import Unauthorized    # 401
 from werkzeug.exceptions import Forbidden       # 403
 from werkzeug.exceptions import NotFound        # 404
 
-from ucsnew.application import app
+from .application import app
 
 
 ### Business logic for Member DAOs
@@ -117,41 +124,98 @@ def create_member(payload):
 ### Business logic for Item DAOs
 
 def get_items_list(q_itemnumber=None, q_membernumber=None, q_description=None, page=1, per_page=25):
-   #if q_itemnumber == None: q_itemnumber = ""
-   #if q_membernumber == None: q_membernumber = ""
-   #if q_description == None: q_description = ""
-   #if page == None: page = 1
-   #if per_page == None: per_page = 25
+    #if q_itemnumber == None: q_itemnumber = ""
+    #if q_membernumber == None: q_membernumber = ""
+    #if q_description == None: q_description = ""
+    if page == None: page = 1
+    if per_page == None: per_page = 25
 
-   #app.logger.error("q_itemnumber: %s" % q_itemnumber)
-   #app.logger.error("q_membernumber: %s" % q_membernumber)
-   #app.logger.error("q_description: %s" % q_description)
+    #app.logger.error("q_itemnumber: %s" % q_itemnumber)
+    #app.logger.error("q_membernumber: %s" % q_membernumber)
+    #app.logger.error("q_description: %s" % q_description)
 
-   #pagination = (Item.query
-   #   .filter(Item.id.like("%s%%" % q_itemnumber))
-   #   .filter(Item.membernumber.like("%s%%" % q_membernumber))
-   #   .filter(Item.description.like("%%%s%%" % q_description))
-   #   .paginate(page=page, per_page=per_page, error_out=False)
-   #)
+    #pagination = (Item.query
+    #   .filter(Item.id.like("%s%%" % q_itemnumber))
+    #   .filter(Item.membernumber.like("%s%%" % q_membernumber))
+    #   .filter(Item.description.like("%%%s%%" % q_description))
+    #   .paginate(page=page, per_page=per_page, error_out=False)
+    #)
 
-   #app.logger.error("items: %s" % pagination.items)
-   #app.logger.error("next_num: %s" % pagination.next_num)
-   #app.logger.error("page: %s" % pagination.page)
-   #app.logger.error("per_page: %s" % pagination.per_page)
-   #app.logger.error("total: %s" % pagination.total)
-   #app.logger.error("query: %s" % pagination.query)
+    #app.logger.error("items: %s" % pagination.items)
+    #app.logger.error("next_num: %s" % pagination.next_num)
+    #app.logger.error("page: %s" % pagination.page)
+    #app.logger.error("per_page: %s" % pagination.per_page)
+    #app.logger.error("total: %s" % pagination.total)
+    #app.logger.error("query: %s" % pagination.query)
 
-   #app.logger.error("Response: %s" % pagination.items)
-   #app.logger.error("Response: %s" % type(pagination.items[0]))
+    #app.logger.error("Response: %s" % pagination.items)
+    #app.logger.error("Response: %s" % type(pagination.items[0]))
 
-   #return pagination.items
+    #return pagination.items
 
-   #items_l = deque(map(lambda x: x.as_api_dict(), Item.query.all()))
-   items_l = Item.query.all()
+    #items_l = deque(map(lambda x: x.as_api_dict(), Item.query.all()))
+    items_l = Item.query.all()
+    result = items_l
 
-   app.logger.info("Items list retrieved")
+    if app.config['LEGACY_UCS_ENABLED']:
+        legacy_db = sql.connect(
+                host=app.config['LEGACY_UCS_SQLHOST'],
+                user=app.config['LEGACY_UCS_SQLUSER'],
+                passwd=app.config['LEGACY_UCS_SQLPASS'],
+                db=app.config['LEGACY_UCS_SQLDB']
+                )
+        legacy_c = legacy_db.c = legacy_db.cursor()
+        legacy_c.execute("""SELECT ItemNumber, Description, Category, Subject,
+                Publisher, Year, ISBN, `Condition`, ConditionDetail, NumItems,
+                FridayPrice, SaturdayPrice, Donate, CheckedIn, CheckedOut, Status,
+                Deleted, MemberNumber FROM Item""")
+        legacy_items_l = legacy_c.fetchall()
 
-   return items_l
+        for i in legacy_items_l:
+            if i[10] == None:
+                price = '0.00'
+            else:
+                discountprice = str(i[10])
+            if i[11] == None:
+                discountprice = '0.00'
+            else:
+                price = str(i[11])
+            if i[13] == None:
+                checkedin = '0000-00-00 00:00:00'
+            else:
+                checkedin = str(i[13])
+            if i[14] == None:
+                checkedout = '0000-00-00 00:00:00'
+            else:
+                checkedout = str(i[13])
+            item = {
+                    'itemnumber': i[0],
+                    'description': i[1],
+                    'category': i[2],
+                    'subject': i[3],
+                    'publisher': i[4],
+                    'year': i[5],
+                    'isbn': i[6],
+                    'condition': int(i[7]),
+                    'conditiondetail': i[8],
+                    'numitems': int(i[9]),
+                    'price': price,
+                    'discountprice': discountprice,
+                    'donate': int(i[12]),
+                    'checkedin': checkedin,
+                    'checkedout': checkedout,
+                    'status': i[15],
+                    'deleted': int(i[16]),
+                    'membernumber': i[17],
+                    }
+            items_l.append(item)
+
+    app.logger.info("Items list retrieved")
+
+    result = items_l[int(0 + (page - 1) * per_page):int(page * per_page)]
+    #app.logger.critical("FIXME: result: %s" % result)
+
+    return result
 
 def create_item(payload):
 
