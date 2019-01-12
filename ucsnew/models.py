@@ -38,7 +38,9 @@ class Member(db.Model, DictableBase):
     browser = db.Column(db.String(255))
     notification = db.Column(db.String(1))
 
-    def __init__(self, membernumber, firstname, lastname, address, address2, city, state, zipcode, phone, email, password, question, answer, activationcode, admin):
+    def __init__(self, membernumber, firstname, lastname, address, address2,
+            city, state, zipcode, phone, email, password, question, answer,
+            activationcode, admin):
         self.membernumber = str(membernumber)
         self.established = datetime.datetime.now().date()
         self.firstname = str(firstname)
@@ -87,11 +89,14 @@ class Item(db.Model, DictableBase):
     status = db.Column(db.String(1), default='0')
     deleted = db.Column(db.String(1))
 
-    members_membernumber = db.Column(db.String(255), db.ForeignKey('members.membernumber'), nullable=False)
-    membernumber = db.relationship(Member, backref=db.backref('members', uselist=True,
-                                cascade='all, delete-orphan'))
+    members_membernumber = db.Column(db.String(255),
+            db.ForeignKey('members.membernumber'), nullable=False)
+    membernumber = db.relationship(Member, backref=db.backref('members',
+        uselist=True, cascade='all, delete-orphan'))
 
-    def __init__(self, itemnumber, membernumber, description, category, subject, publisher, year, isbn, condition, conditiondetail, numitems, price, discountprice, donate):
+    def __init__(self, itemnumber, membernumber, description, category, subject,
+            publisher, year, isbn, condition, conditiondetail, numitems,
+            price, discountprice, donate):
         itemnumber = str(itemnumber)
         membernumber = str(membernumber)
         description = str(description)
@@ -103,8 +108,10 @@ class Item(db.Model, DictableBase):
         condition = str(condition)
         conditiondetail = str(conditiondetail)
         numitems = str(numitems)
-        price = Decimal(price).quantize(Decimal('0.0001', rounding=ROUND_HALF_UP))
-        discountprice = Decimal(discountprice).quantize(Decimal('0.0001', rounding=ROUND_HALF_UP))
+        price = Decimal(price).quantize(Decimal('0.0001'),
+            rounding=ROUND_HALF_UP)
+        discountprice = Decimal(discountprice).quantize(Decimal('0.0001'),
+            rounding=ROUND_HALF_UP)
         donate = str(donate)
 
     def as_api_dict(self):
@@ -149,7 +156,8 @@ class UserRoles(db.Model, DictableBase):
     #username = db.Column(db.String(64), nullable=False)
     rolename = db.Column(db.String(255), primary_key=True, nullable=False)
 
-    users_username = db.Column(db.String(64), db.ForeignKey('users.username'), primary_key=True, nullable=False)
+    users_username = db.Column(db.String(64), db.ForeignKey('users.username'),
+            primary_key=True, nullable=False)
     username = db.relationship(User, backref=db.backref('users', uselist=True,
                                 cascade='all, delete-orphan'))
 

@@ -1,7 +1,7 @@
 import datetime
+import re
 import MySQLdb as sql
-import datetime
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 #from collections import deque
 
@@ -21,63 +21,86 @@ from .application import app
 
 ### Business logic for Member DAOs
 
-def get_members_list(q_memberid=None, q_membernumber=None, q_lastname=None, q_phonenumber=None, page=1, per_page=25):
-   if q_memberid == None: q_memberid = ""
-   if q_membernumber == None: q_membernumber = ""
-   if q_lastname == None: q_lastname = ""
-   if q_phonenumber == None: q_phonenumber = ""
-   if page == None: page = 1
-   if per_page == None: per_page = 25
+def get_members_list(q_memberid=None, q_membernumber=None, q_lastname=None,
+        q_phonenumber=None, page=1, per_page=25):
+    if q_phonenumber == None: q_phonenumber = ""
 
-   app.logger.error("query_memberid: %s" % q_memberid)
-   app.logger.error("query_membernumber: %s" % q_membernumber)
-   app.logger.error("query_lastname: %s" % q_lastname)
-   app.logger.error("query_phonenumber: %s" % q_phonenumber)
+    page = page if page else 1
+    per_page = per_page if per_page else 25
 
-   pagination = (Member.query
-      .join(Item, Member.membernumber == Item.membernumber)
-      #.with_entities(
-      #   Account.ID.label('ID').label('ID'),
-      #   Account.MemberNumber.label('MemberNumber'),
-      #   Account.FirstName.label('FirstName'),
-      #   Account.LastName.label('LastName'),
-      #   db.func.count(Item.ID).label('Items'),
-      #   Account.Activated.label('Activated'),
-      #   Account.Phone.label('Phone'),
-      #)
-      .filter(Member.id.like("%s%%" % q_memberid))
-      .filter(Member.membernumber.like("%s%%" % q_membernumber))
-      .filter(Member.lastname.like("%s%%" % q_lastname))
-      .filter(Member.phone.like("%s%%" % q_phonenumber))
-      .group_by(Member.membernumber)
-      .paginate(page=page, per_page=per_page, error_out=False)
-   )
+    db_member = (
+                db.session.query(Member)
+                .order_by(Member.membernumber.asc())
+            )
+    if q_membernumber:
+        db_member = db_member.filter(Member.membernumber.like("%s%%"
+                .format(q_membernumber)))
+    if q_lastname:
+        db_member = db_member.filter(Member.lastname.like("%s%%"
+                .format(q_lastname)))
+    if q_phonenumber:
+        db_member = db_member.filter(Member.phonenumber.like("%s%%"
+                .format(q_phonenumber)))
 
-   app.logger.error("items: %s" % pagination.items)
-   app.logger.error("next_num: %s" % pagination.next_num)
-   app.logger.error("page: %s" % pagination.page)
-   app.logger.error("per_page: %s" % pagination.per_page)
-   app.logger.error("total: %s" % pagination.total)
-   app.logger.error("query: %s" % pagination.query)
+    if not app.config['LEGACY_UCS_ENABLED']:
+        pagination = db_member.paginate(page=page, per_page=per_page,
+            error_out=False)
+        members_l = pagination.items
+    else:
+        members_l = db_member.all()
 
-   # Using .with_entities in the sqlalchemy causes its output to be a list instead of an object
-   # This class is used to reconstruct an object
-   # Maybe there is a better way of doing this
-   #class cols(object):
-   #   def __init__(self,ID,MemberNumber,FirstName,LastName,Items,Activated,Phone):
-   #      self.ID = int(ID)
-   #      self.MemberNumber = MemberNumber
-   #      self.FirstName = FirstName
-   #      self.LastName = LastName
-   #      self.Items = int(Items)
-   #      self.Activated = Activated
-   #      self.Phone = Phone
-   #results = []
-   #for i in pagination.items:
-   #   results.append(cols(i.ID,i.MemberNumber,i.FirstName,i.LastName,i.Items,i.Activated,i.Phone))
+        legacy_db = sql.connect(
+                host=app.config['LEGACY_UCS_SQLHOST'],
+                user=app.config['LEGACY_UCS_SQLUSER'],
+                passwd=app.config['LEGACY_UCS_SQLPASS'],
+                db=app.config['LEGACY_UCS_SQLDB']
+                )
+        legacy_db.c = legacy_db.cursor()
+        nullstring = lambda x: x if x else ''
+        legacy_db.c.execute("""SELECT MemberNumber, Established, FirstName,
+                LastName, Address, Address2, City, State, Zip, Phone, Email,
+                Password, Question, Answer, ActivationCode, Activated, Admin,
+                Browser, Notification FROM Account {} {} {} limit {},{}"""
+                    .format(
+                        "WHERE MemberNumber like \"{}%%\""
+                            .format(nullstring(q_membernumber)),
+                        "AND LastName like \"{}%%\""
+                            .format(nullstring(q_lastname)),
+                        "AND Phone like \"{}%%\""
+                            .format(nullstring(q_phonenumber)),
+                        (page * per_page - per_page),
+                        per_page,
+                        )
+                    )
+        legacy_members_l = legacy_db.c.fetchall()
 
-   #return results
-   return pagination.items
+        for i in legacy_members_l:
+            member = {
+                'membernumber': i[0],
+                'established': i[1],
+                'firstname': i[2],
+                'lastname': i[3],
+                'address': i[4],
+                'address2': i[5],
+                'city': i[6],
+                'state': i[7],
+                'zip': i[8],
+                'phone': i[9],
+                'email': i[10],
+                'password': i[11],
+                'question': i[12],
+                'answer': i[13],
+                'activationcode': i[14],
+                'activated': i[15],
+                'admin': i[16],
+                'browser': i[17],
+                'notification': i[18],
+                }
+            members_l.append(member)
+
+        #members_l = members_l[int(0 + (page - 1) * per_page):int(page * per_page)]
+
+    return members_l
 
 def create_member(payload):
 
@@ -112,7 +135,9 @@ def create_member(payload):
          .first()
       )
       # Created as an error since I'm not getting info messages
-      app.logger.error("Created account %s: %s %s" % (new_member.membernumber, new_member.firstname, new_member.lastname))
+      app.logger.error("Created account %s: %s %s" %
+              (new_member.membernumber, new_member.firstname, new_member.lastname)
+              )
 
    except IntegrityError as e:
       app.logger.error("IntegrityError: %s" % str(e))
@@ -123,105 +148,107 @@ def create_member(payload):
 
 ### Business logic for Item DAOs
 
-def get_items_list(q_itemnumber=None, q_membernumber=None, q_description=None, page=1, per_page=25):
-    #if q_itemnumber == None: q_itemnumber = ""
-    #if q_membernumber == None: q_membernumber = ""
-    #if q_description == None: q_description = ""
-    if page == None: page = 1
-    if per_page == None: per_page = 25
+def get_items_list(q_itemnumber=None, q_membernumber=None, q_description=None,
+        page=1, per_page=25):
 
-    #app.logger.error("q_itemnumber: %s" % q_itemnumber)
-    #app.logger.error("q_membernumber: %s" % q_membernumber)
-    #app.logger.error("q_description: %s" % q_description)
+    page = page if page else 1
+    per_page = per_page if per_page else 25
 
-    #pagination = (Item.query
-    #   .filter(Item.id.like("%s%%" % q_itemnumber))
-    #   .filter(Item.membernumber.like("%s%%" % q_membernumber))
-    #   .filter(Item.description.like("%%%s%%" % q_description))
-    #   .paginate(page=page, per_page=per_page, error_out=False)
-    #)
+    db_item = (
+                db.session.query(Item)
+                .order_by(Item.itemnumber.asc())
+            )
+    if q_itemnumber:
+        db_item = db_item.filter(Item.itemnumber.like("{}%%"
+                .format(q_itemnumber)))
+    if q_membernumber:
+        db_item = db_item.filter(Item.members_membernumber.like("{}%%"
+                .format(q_membernumber)))
+    if q_description:
+        db_item = db_item.filter(Item.description.like("%%{}%%"
+                .format(q_description)))
 
-    #app.logger.error("items: %s" % pagination.items)
-    #app.logger.error("next_num: %s" % pagination.next_num)
-    #app.logger.error("page: %s" % pagination.page)
-    #app.logger.error("per_page: %s" % pagination.per_page)
-    #app.logger.error("total: %s" % pagination.total)
-    #app.logger.error("query: %s" % pagination.query)
+    if not app.config['LEGACY_UCS_ENABLED']:
+        pagination = db_item.paginate(page=page, per_page=per_page,
+                error_out=False)
+        items_l = pagination.items
+    else:
+        items_l = db_item.all()
 
-    #app.logger.error("Response: %s" % pagination.items)
-    #app.logger.error("Response: %s" % type(pagination.items[0]))
-
-    #return pagination.items
-
-    #items_l = deque(map(lambda x: x.as_api_dict(), Item.query.all()))
-    items_l = Item.query.all()
-    result = items_l
-
-    if app.config['LEGACY_UCS_ENABLED']:
         legacy_db = sql.connect(
                 host=app.config['LEGACY_UCS_SQLHOST'],
                 user=app.config['LEGACY_UCS_SQLUSER'],
                 passwd=app.config['LEGACY_UCS_SQLPASS'],
                 db=app.config['LEGACY_UCS_SQLDB']
                 )
-        legacy_c = legacy_db.c = legacy_db.cursor()
-        legacy_c.execute("""SELECT ItemNumber, Description, Category, Subject,
+        legacy_db.c = legacy_db.cursor()
+        nullstring = lambda x: x if x else ''
+        legacy_db.c.execute("""SELECT ItemNumber, Description, Category, Subject,
                 Publisher, Year, ISBN, `Condition`, ConditionDetail, NumItems,
                 FridayPrice, SaturdayPrice, Donate, CheckedIn, CheckedOut, Status,
-                Deleted, MemberNumber FROM Item""")
-        legacy_items_l = legacy_c.fetchall()
+                Deleted, MemberNumber FROM Item {} {} {} limit {},{}"""
+                    .format(
+                        "WHERE ItemNumber like \"{}%%\""
+                            .format(nullstring(q_itemnumber)),
+                        "AND Description like \"%%{}%%\""
+                            .format(nullstring(q_description)),
+                        "AND MemberNumber like \"{}%%\""
+                            .format(nullstring(q_membernumber)),
+                        (page * per_page - per_page),
+                        per_page,
+                        )
+                    )
+        legacy_items_l = legacy_db.c.fetchall()
 
         for i in legacy_items_l:
-            if i[10] == None:
-                price = '0.00'
-            else:
-                discountprice = str(i[10])
-            if i[11] == None:
-                discountprice = '0.00'
-            else:
-                price = str(i[11])
-            if i[13] == None:
-                checkedin = '0000-00-00 00:00:00'
-            else:
-                checkedin = str(i[13])
-            if i[14] == None:
-                checkedout = '0000-00-00 00:00:00'
-            else:
-                checkedout = str(i[13])
+            formatprice = lambda x: str(Decimal(x).quantize(Decimal('0.01'),
+                rounding=ROUND_HALF_UP))
+            def formattime(t):
+                re_datetime = r'(\d{4})-(\d{2})-(\d{2})( (\d{2}):(\d{2}):(\d{2}))?'
+                t = re.match(re_datetime, t)
+                if t:
+                    if len(t.groups()) >= 8:
+                        t = str(datetime.datetime.strptime(str(t.group(0)),
+                            '%Y-%m-%d %H:%M:%S'))
+                    else:
+                        t = datetime.datetime.strptime(str(t.group(0)), '%Y-%m-%d')
+                        t = t.strftime('%Y-%m-%d %H:%M:%S')
+                else:
+                    t = '0000-00-00 00:00:00'
+
+                return t
+
             item = {
-                    'itemnumber': i[0],
-                    'description': i[1],
-                    'category': i[2],
-                    'subject': i[3],
-                    'publisher': i[4],
-                    'year': i[5],
-                    'isbn': i[6],
-                    'condition': int(i[7]),
-                    'conditiondetail': i[8],
-                    'numitems': int(i[9]),
-                    'price': price,
-                    'discountprice': discountprice,
-                    'donate': int(i[12]),
-                    'checkedin': checkedin,
-                    'checkedout': checkedout,
-                    'status': i[15],
-                    'deleted': int(i[16]),
-                    'membernumber': i[17],
-                    }
+                'itemnumber': i[0],
+                'description': i[1],
+                'category': i[2],
+                'subject': i[3],
+                'publisher': i[4],
+                'year': i[5],
+                'isbn': i[6],
+                'condition': int(i[7]),
+                'conditiondetail': i[8],
+                'numitems': int(i[9]),
+                'price': formatprice(str(i[10])),
+                'discountprice': formatprice(str(i[11])),
+                'donate': int(i[12]),
+                'checkedin': formattime(str(i[13])),
+                'checkedout': formattime(str(i[14])),
+                'status': i[15],
+                'deleted': int(i[16]),
+                'membernumber': i[17],
+                }
             items_l.append(item)
 
-    app.logger.info("Items list retrieved")
+        #items_l = items_l[int(0 + (page - 1) * per_page):int(page * per_page)]
 
-    result = items_l[int(0 + (page - 1) * per_page):int(page * per_page)]
-    #app.logger.critical("FIXME: result: %s" % result)
-
-    return result
+    return items_l
 
 def create_item(payload):
 
-   itemnumber = 1 + int(Item.query
-      .filter(Item.MemberNumber == payload['MemberNumber'])
-      .count())
+   itemnumber = 1 + int(Item.query.
+      filter(Item.MemberNumber == payload['MemberNumber']).
+      count())
 
    new_item = Item(
       itemnumber,
@@ -235,8 +262,10 @@ def create_item(payload):
       int(payload['Condition']),
       str(payload['ConditionDetail']),
       int(payload['NumItems']),
-      Decimal(str(payload['FridayPrice'])).quantize(Decimal(".01"), ROUND_HALF_UP),
-      Decimal(str(payload['SaturdayPrice'])).quantize(Decimal(".01"), ROUND_HALF_UP),
+      Decimal(str(payload['FridayPrice'])).\
+              quantize(Decimal(".01"), ROUND_HALF_UP),
+      Decimal(str(payload['SaturdayPrice'])).\
+              quantize(Decimal(".01"), ROUND_HALF_UP),
       bool(payload['Donate']),
       None,    # CheckedIn
       None,    # CheckedOut
@@ -249,13 +278,14 @@ def create_item(payload):
       db.session.add(new_item)
       db.session.commit()
 
-      new_item = (Item.query
-         .filter(Item.MemberNumber == payload['MemberNumber'])
-         .filter(Item.ItemNumber == itemnumber)
-         .first()
+      new_item = (Item.query.
+         filter(Item.MemberNumber == payload['MemberNumber']).
+         filter(Item.ItemNumber == itemnumber).
+         first()
       )
       # Created as an error since I'm not getting info messages
-      app.logger.error("Created item %s: %s" % (new_item.ID,new_item.Description))
+      app.logger.error("Created item %s: %s" % 
+              (new_item.ID,new_item.Description))
 
    except IntegrityError as e:
       app.logger.error("IntegrityError: %s" % str(e))
@@ -287,7 +317,8 @@ def create_user(payload):
 
     new_user = {
             'username': str(payload['username']),
-            'password': generate_password_hash(str(payload['password']), app.config['PW_HASH']),
+            'password': generate_password_hash(str(payload['password']),
+                app.config['PW_HASH']),
             'firstname': str(payload['firstname']),
             'lastname': str(payload['lastname']),
             }
@@ -303,10 +334,9 @@ def create_user(payload):
         db.session.add(db_user)
         db.session.commit()
 
-        db_user = (User.query
-            .filter(User.username == new_user['username'])
-            .first()
-        )
+        db_user = User.query.\
+            filter(User.username == new_user['username']).\
+            first()
 
         app.logger.info("Created user %s" % db_user.username)
         # Created as an error since I'm not getting info messages
@@ -325,7 +355,9 @@ def replace_user(auth_user, old_username, payload):
         raise NotFound
 
     if 'password' in payload:
-        payload['password'] = generate_password_hash(str(payload['password']), app.config['PW_HASH'])
+        payload['password'] = generate_password_hash(
+                str(payload['password']), app.config['PW_HASH']
+                )
 
     new_user = {
             'username': payload.get('username', db_user.username),
@@ -374,6 +406,7 @@ def delete_user(auth_user, old_username, payload):
         app.logger.error("IntegrityError: %s" % str(e))
         raise Forbidden("Unable to delete resource: IntegrityError")
 
-    return {'message': "User %s successfully deleted by %s" % (old_username, auth_user)}
+    return {'message': "User %s successfully deleted by %s" % \
+            (old_username, auth_user)}
 
 
