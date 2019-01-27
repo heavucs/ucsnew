@@ -16,7 +16,7 @@ class DictableBase:
 
 class Member(db.Model, DictableBase):
     __tablename__ = 'members'
-    __table_args__ = {'mysql_engine': 'InnoDB'}
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4',}
 
     membernumber = db.Column(db.String(255), primary_key=True)
     established = db.Column(db.Date)
@@ -38,11 +38,13 @@ class Member(db.Model, DictableBase):
     browser = db.Column(db.String(255))
     notification = db.Column(db.String(1))
 
-    def __init__(self, membernumber, firstname, lastname, address, address2,
-            city, state, zipcode, phone, email, password, question, answer,
-            activationcode, admin):
+    def __init__(self, membernumber, established, firstname, lastname, address,
+            address2, city, state, zipcode, phone, email, password, question,
+            answer, activationcode, admin):
+
         self.membernumber = str(membernumber)
-        self.established = datetime.datetime.now().date()
+        #self.established = datetime.datetime.now().date()
+        self.established = str(established)
         self.firstname = str(firstname)
         self.lastname = str(lastname)
         self.address = str(address)
@@ -65,11 +67,11 @@ class Member(db.Model, DictableBase):
         return resource_d
 
     def __repr__(self):
-        return "<Member %s>" % self.membernumber
+        return "<Member {}>".format(self.membernumber)
 
 class Item(db.Model, DictableBase):
     __tablename__ = 'items'
-    __table_args__ = {'mysql_engine': 'InnoDB'}
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4',}
 
     itemnumber = db.Column(db.String(255), primary_key=True)
     description = db.Column(db.String(255))
@@ -89,40 +91,41 @@ class Item(db.Model, DictableBase):
     status = db.Column(db.String(1), default='0')
     deleted = db.Column(db.String(1))
 
-    members_membernumber = db.Column(db.String(255),
+    member_membernumber = db.Column(db.String(255),
             db.ForeignKey('members.membernumber'), nullable=False)
-    membernumber = db.relationship(Member, backref=db.backref('members',
+    membernumber = db.relationship(Member, backref=db.backref('items',
         uselist=True, cascade='all, delete-orphan'))
 
     def __init__(self, itemnumber, membernumber, description, category, subject,
             publisher, year, isbn, condition, conditiondetail, numitems,
             price, discountprice, donate):
-        itemnumber = str(itemnumber)
-        membernumber = str(membernumber)
-        description = str(description)
-        category = str(category)
-        subject = str(subject)
-        publisher = str(publisher)
-        year = str(year)
-        isbn = str(isbn)
-        condition = str(condition)
-        conditiondetail = str(conditiondetail)
-        numitems = str(numitems)
-        price = Decimal(price).quantize(Decimal('0.0001'),
-            rounding=ROUND_HALF_UP)
-        discountprice = Decimal(discountprice).quantize(Decimal('0.0001'),
-            rounding=ROUND_HALF_UP)
-        donate = str(donate)
+
+        self.itemnumber = str(itemnumber)
+        self.member_membernumber = str(membernumber)
+        self.description = str(description)
+        self.category = str(category)
+        self.subject = str(subject)
+        self.publisher = str(publisher)
+        self.year = str(year)
+        self.isbn = str(isbn)
+        self.condition = str(condition)
+        self.conditiondetail = str(conditiondetail)
+        self.numitems = str(numitems)
+        self.price = Decimal(price).quantize(Decimal('0.0001'),
+                rounding=ROUND_HALF_UP)
+        self.discountprice = Decimal(discountprice).quantize(Decimal('0.0001'),
+                rounding=ROUND_HALF_UP)
+        self.donate = str(donate)
 
     def as_api_dict(self):
 
         resource_d = self.as_dict()
-        resource_d['membernumber'] = self.members.membernumber
+        resource_d['membernumber'] = self.member_membernumber
 
         return resource_d
 
     def __repr__(self):
-        return "<Item %r>" % self.ItemNumber
+        return "<Item {}>".format(self.itemnumber)
 
 class User(db.Model, DictableBase):
     __tablename__ = 'users'
@@ -150,7 +153,7 @@ class User(db.Model, DictableBase):
 
 class UserRoles(db.Model, DictableBase):
     __tablename__ = 'userroles'
-    __table_args__ = {'mysql_engine': 'InnoDB'}
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4',}
 
     #id = db.Column(db.Integer, primary_key=True, auto_increment=True)
     #username = db.Column(db.String(64), nullable=False)

@@ -23,6 +23,7 @@ from .application import app
 
 def get_members_list(q_memberid=None, q_membernumber=None, q_lastname=None,
         q_phonenumber=None, page=1, per_page=25):
+
     if q_phonenumber == None: q_phonenumber = ""
 
     page = page if page else 1
@@ -33,13 +34,13 @@ def get_members_list(q_memberid=None, q_membernumber=None, q_lastname=None,
                 .order_by(Member.membernumber.asc())
             )
     if q_membernumber:
-        db_member = db_member.filter(Member.membernumber.like("%s%%"
+        db_member = db_member.filter(Member.membernumber.like("{}%%"
                 .format(q_membernumber)))
     if q_lastname:
-        db_member = db_member.filter(Member.lastname.like("%s%%"
+        db_member = db_member.filter(Member.lastname.like("{}%%"
                 .format(q_lastname)))
     if q_phonenumber:
-        db_member = db_member.filter(Member.phonenumber.like("%s%%"
+        db_member = db_member.filter(Member.phonenumber.like("{}%%"
                 .format(q_phonenumber)))
 
     if not app.config['LEGACY_UCS_ENABLED']:
@@ -47,7 +48,10 @@ def get_members_list(q_memberid=None, q_membernumber=None, q_lastname=None,
             error_out=False)
         members_l = pagination.items
     else:
-        members_l = db_member.all()
+        pagination = db_member.paginate(page=page, per_page=per_page,
+            error_out=False)
+        members_l = pagination.items
+        #members_l = db_member.all()
 
         legacy_db = sql.connect(
                 host=app.config['LEGACY_UCS_SQLHOST'],
@@ -104,46 +108,63 @@ def get_members_list(q_memberid=None, q_membernumber=None, q_lastname=None,
 
 def create_member(payload):
 
-   new_mccount = Member(
-      str(payload['membernumber']),
-      datetime.date.today(), # Established
-      str(payload['firstname']),
-      str(payload['lastname']),
-      str(payload['address']),
-      str(payload['address2']),
-      str(payload['city']),
-      str(payload['state']),
-      str(payload['zipcode']),
-      str(payload['phone']),
-      str(payload['email']),
-      str(payload['password']),
-      str(payload['question']),
-      str(payload['answer']),
-      str(''), # Activation Code
-      datetime.datetime.date(),# Activated
-      str('0'),# Admin
-      str(''), # Browser
-      str(''), # Notification
-   )
+    new_member_d = {
+            'membernumber': payload['membernumber'],
+            'established': datetime.date.today(),
+            'firstname': payload['firstname'],
+            'lastname': payload['lastname'],
+            'address': payload['address'],
+            'address2': payload['address2'],
+            'city': payload['city'],
+            'state': payload['state'],
+            'zipcode': payload['zipcode'],
+            'phone': payload['phone'],
+            'email': payload['email'],
+            'password': payload['password'],
+            'question': payload['question'],
+            'answer': payload['answer'],
+            'activationcode': payload['activationcode'],
+            'admin': str(payload['admin']),
+            }
+
+    new_member = Member(
+            new_member_d['membernumber'],
+            new_member_d['established'],
+            new_member_d['firstname'],
+            new_member_d['lastname'],
+            new_member_d['address'],
+            new_member_d['address2'],
+            new_member_d['city'],
+            new_member_d['state'],
+            new_member_d['zipcode'],
+            new_member_d['phone'],
+            new_member_d['email'],
+            new_member_d['password'],
+            new_member_d['question'],
+            new_member_d['answer'],
+            new_member_d['activationcode'],
+            new_member_d['admin'],
+            )
    
-   try:
-      db.session.add(new_member)
-      db.session.commit()
+    try:
+        db.session.add(new_member)
+        db.session.commit()
 
-      new_account = (Member.query
-         .filter(Member.membernumber == payload['membernumber'])
-         .first()
-      )
-      # Created as an error since I'm not getting info messages
-      app.logger.error("Created account %s: %s %s" %
-              (new_member.membernumber, new_member.firstname, new_member.lastname)
-              )
+        new_member_d = new_member.as_api_dict()
+        # Created as an error since I'm not getting info messages
+        app.logger.error("Created account {}: {} {}"
+                .format(
+                    new_member.membernumber,
+                    new_member.firstname,
+                    new_member.lastname,
+                    )
+                )
 
-   except IntegrityError as e:
-      app.logger.error("IntegrityError: %s" % str(e))
-      raise Forbidden("Unable to create resource: IntegrityError")
+    except IntegrityError as e:
+        app.logger.error("IntegrityError: {}".format(e))
+        raise Forbidden("Unable to create resource: IntegrityError")
 
-   return new_member
+    return new_member
 
 
 ### Business logic for Item DAOs
@@ -170,10 +191,13 @@ def get_items_list(q_itemnumber=None, q_membernumber=None, q_description=None,
 
     if not app.config['LEGACY_UCS_ENABLED']:
         pagination = db_item.paginate(page=page, per_page=per_page,
-                error_out=False)
+            error_out=False)
         items_l = pagination.items
     else:
-        items_l = db_item.all()
+        pagination = db_item.paginate(page=page, per_page=per_page,
+            error_out=False)
+        items_l = pagination.items
+        #items_l = db_item.all()
 
         legacy_db = sql.connect(
                 host=app.config['LEGACY_UCS_SQLHOST'],
@@ -183,10 +207,11 @@ def get_items_list(q_itemnumber=None, q_membernumber=None, q_description=None,
                 )
         legacy_db.c = legacy_db.cursor()
         nullstring = lambda x: x if x else ''
-        legacy_db.c.execute("""SELECT ItemNumber, Description, Category, Subject,
-                Publisher, Year, ISBN, `Condition`, ConditionDetail, NumItems,
-                FridayPrice, SaturdayPrice, Donate, CheckedIn, CheckedOut, Status,
-                Deleted, MemberNumber FROM Item {} {} {} limit {},{}"""
+        legacy_db.c.execute("""SELECT ID, ItemNumber, Description, Category,
+                Subject, Publisher, Year, ISBN, `Condition`, ConditionDetail,
+                NumItems, FridayPrice, SaturdayPrice, Donate, CheckedIn,
+                CheckedOut, Status, Deleted, MemberNumber
+                FROM Item {} {} {} limit {},{}"""
                     .format(
                         "WHERE ItemNumber like \"{}%%\""
                             .format(nullstring(q_itemnumber)),
@@ -220,23 +245,23 @@ def get_items_list(q_itemnumber=None, q_membernumber=None, q_description=None,
 
             item = {
                 'itemnumber': i[0],
-                'description': i[1],
-                'category': i[2],
-                'subject': i[3],
-                'publisher': i[4],
-                'year': i[5],
-                'isbn': i[6],
-                'condition': int(i[7]),
-                'conditiondetail': i[8],
-                'numitems': int(i[9]),
-                'price': formatprice(str(i[10])),
-                'discountprice': formatprice(str(i[11])),
-                'donate': int(i[12]),
-                'checkedin': formattime(str(i[13])),
-                'checkedout': formattime(str(i[14])),
-                'status': i[15],
-                'deleted': int(i[16]),
-                'membernumber': i[17],
+                'description': i[2],
+                'category': i[3],
+                'subject': i[4],
+                'publisher': i[5],
+                'year': i[6],
+                'isbn': i[7],
+                'condition': int(i[8]),
+                'conditiondetail': i[9],
+                'numitems': int(i[10]),
+                'price': formatprice(str(i[11])),
+                'discountprice': formatprice(str(i[12])),
+                'donate': int(i[13]),
+                'checkedin': formattime(str(i[14])),
+                'checkedout': formattime(str(i[15])),
+                'status': i[16],
+                'deleted': int(i[17]),
+                'membernumber': i[18],
                 }
             items_l.append(item)
 
@@ -246,52 +271,68 @@ def get_items_list(q_itemnumber=None, q_membernumber=None, q_description=None,
 
 def create_item(payload):
 
-   itemnumber = 1 + int(Item.query.
-      filter(Item.MemberNumber == payload['MemberNumber']).
-      count())
+    itemnumber = (int(Item.query.count()) + 1)
 
-   new_item = Item(
-      itemnumber,
-      str(payload['MemberNumber']),
-      str(payload['Description']),
-      str(payload['Category']),
-      str(payload['Subject']),
-      str(payload['Publisher']),
-      str(payload['Year']),
-      str(payload['ISBN']),
-      int(payload['Condition']),
-      str(payload['ConditionDetail']),
-      int(payload['NumItems']),
-      Decimal(str(payload['FridayPrice'])).\
-              quantize(Decimal(".01"), ROUND_HALF_UP),
-      Decimal(str(payload['SaturdayPrice'])).\
-              quantize(Decimal(".01"), ROUND_HALF_UP),
-      bool(payload['Donate']),
-      None,    # CheckedIn
-      None,    # CheckedOut
-      0,       # Status
-      False,   # Deleted
-      False,   # Printed
-   )
+    new_item_d = {
+            'itemnumber': str(itemnumber),
+            'membernumber': payload['membernumber'],
+            'description': payload['description'],
+            'category': payload['category'],
+            'subject': payload['subject'],
+            'publisher': payload['publisher'],
+            'year': payload['year'],
+            'isbn': payload['isbn'],
+            'condition': payload['condition'],
+            'conditiondetail': payload['conditiondetail'],
+            'numitems': payload['numitems'],
+            'price': Decimal(str(payload['price'])) \
+                    .quantize(Decimal(".01"), ROUND_HALF_UP),
+            'discountprice': Decimal(str(payload['discountprice'])) \
+                    .quantize(Decimal(".01"), ROUND_HALF_UP),
+            'donate': payload['donate'],
+            }
 
-   try:
-      db.session.add(new_item)
-      db.session.commit()
+    new_item = Item(
+            new_item_d['itemnumber'],
+            new_item_d['membernumber'],
+            new_item_d['description'],
+            new_item_d['category'],
+            new_item_d['subject'],
+            new_item_d['publisher'],
+            new_item_d['year'],
+            new_item_d['isbn'],
+            new_item_d['condition'],
+            new_item_d['conditiondetail'],
+            new_item_d['numitems'],
+            new_item_d['price'],
+            new_item_d['discountprice'],
+            new_item_d['donate'],
+            )
 
-      new_item = (Item.query.
-         filter(Item.MemberNumber == payload['MemberNumber']).
-         filter(Item.ItemNumber == itemnumber).
-         first()
-      )
-      # Created as an error since I'm not getting info messages
-      app.logger.error("Created item %s: %s" % 
-              (new_item.ID,new_item.Description))
+    try:
+        db.session.add(new_item)
+        db.session.commit()
 
-   except IntegrityError as e:
-      app.logger.error("IntegrityError: %s" % str(e))
-      raise Forbidden("Unable to create resource: IntegrityError")
+        new_item = (
+                Item.query
+                    .filter(Item.MemberNumber == payload['MemberNumber'])
+                    .filter(Item.ItemNumber == itemnumber)
+                    .first()
+                )
 
-   return new_item
+        # Created as an error since I'm not getting info messages
+        app.logger.error("Created item {}: {}"
+                .format(
+                    new_item.ID,
+                    new_item.Description
+                    )
+                )
+
+    except IntegrityError as e:
+        app.logger.error("IntegrityError: {}".format(e))
+        raise Forbidden("Unable to create resource: IntegrityError")
+
+    return new_item
 
 
 ### Business logic for Item DAOs

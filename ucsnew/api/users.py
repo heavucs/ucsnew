@@ -78,4 +78,3 @@ class UserResourceView(Resource):
         '''Delete user'''
 
         return delete_user(flask_g.username, username, api.payload), 200
-

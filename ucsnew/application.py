@@ -28,13 +28,17 @@ class BasicConfig(object):
     LOGGING = True
     LOGGING_LEVEL = logging.INFO
 
-def load_configuration(app):
-    config_file = os.environ.get('APP_CONF_FILE', None)
-
-    if config_file:
-       app.config.from_pyfile(config_file)
+def load_configuration(app, configfile=[]):
+    if configfile:
+        os.environ.get(configfile)
+        app.config.from_pyfile(configfile)
+        print("Configuration file loaded")
+    elif os.environ.get('APP_CONF_FILE', None):
+        configfile = os.environ.get('APP_CONF_FILE', None)
+        app.config.from_pyfile(configfile)
+        print("Configuration file loaded")
     else:
-       app.config.from_object(BasicConfig)
+        app.config.from_object(BasicConfig)
 
     return app
 
@@ -54,15 +58,13 @@ def configure_logging(app):
         #app.logger.error('error message')
         #app.logger.critical('critical message')
 
-def create_app(app):
-    from .api import api
+def create_app(app, configfile=[]):
     from .models import db
 
-    load_configuration(app)
+    load_configuration(app, configfile=configfile)
     configure_logging(app)
     db.init_app(app)
     db.create_all()
-    api.init_app(app)
 
     if 'SECRET_KEY_FILE' in app.config: 
         try:
@@ -76,7 +78,6 @@ def create_app(app):
         app.logger.warning("SECRET_KEY_FILE setting not found. Using a random secret...")
         app.secret_key = os.urandom(32)
 
-
     return app
 
 from flask import g as flask_g
@@ -84,6 +85,8 @@ app = Flask(__name__)
 load_configuration(app)
 http_auth = HTTPBasicAuth()
 app = create_app(app)
+from .api import api
+api.init_app(app)
 
 @http_auth.verify_password
 def verify_password(username, password):
