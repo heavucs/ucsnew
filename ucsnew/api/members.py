@@ -10,8 +10,6 @@ member_model = ns.model('Member', member_model)
 from ..logic import get_members_list, create_member
 
 member_parser = ns.parser()
-member_parser.add_argument('memberid', type=int, location='args',
-        required=False, help='Query member\'s database ID')
 member_parser.add_argument('membernumber', type=str, location='args',
         required=False, help='Query Member Number')
 member_parser.add_argument('lastname', type=str, location='args',
@@ -30,14 +28,13 @@ class Member(Resource):
     @ns.doc(parser=member_parser)
     @ns.marshal_with(member_model, as_list=True)
     @ns.response(200, 'OK', model=member_model)
-    def get(self, memberid=None, membernumber=None, lastname=None, phone=None,
+    def get(self, membernumber=None, lastname=None, phone=None,
             page=1, per_page=25):
 
         '''List Members'''
 
         args = member_parser.parse_args()
         results = get_members_list(
-            args['memberid'],
             args['membernumber'],
             args['lastname'],
             args['phone'],

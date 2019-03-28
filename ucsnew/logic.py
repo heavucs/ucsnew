@@ -8,6 +8,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from .models import db
 from .models import Member
 from .models import Item
+from .models import Transaction
 from .models import User
 
 from sqlalchemy.exc import IntegrityError
@@ -21,8 +22,8 @@ from .application import app
 
 ### Business logic for Member DAOs
 
-def get_members_list(q_memberid=None, q_membernumber=None, q_lastname=None,
-        q_phonenumber=None, page=1, per_page=25):
+def get_members_list(q_membernumber=None, q_lastname=None, q_phonenumber=None,
+        page=1, per_page=25):
 
     if q_phonenumber == None: q_phonenumber = ""
 
@@ -40,7 +41,7 @@ def get_members_list(q_memberid=None, q_membernumber=None, q_lastname=None,
         db_member = db_member.filter(Member.lastname.like("{}%%"
                 .format(q_lastname)))
     if q_phonenumber:
-        db_member = db_member.filter(Member.phonenumber.like("{}%%"
+        db_member = db_member.filter(Member.phone.like("{}%%"
                 .format(q_phonenumber)))
 
     if not app.config['LEGACY_UCS_ENABLED']:
@@ -183,7 +184,7 @@ def get_items_list(q_itemnumber=None, q_membernumber=None, q_description=None,
         db_item = db_item.filter(Item.itemnumber.like("{}%%"
                 .format(q_itemnumber)))
     if q_membernumber:
-        db_item = db_item.filter(Item.members_membernumber.like("{}%%"
+        db_item = db_item.filter(Item.member_membernumber.like("{}%%"
                 .format(q_membernumber)))
     if q_description:
         db_item = db_item.filter(Item.description.like("%%{}%%"
@@ -211,7 +212,7 @@ def get_items_list(q_itemnumber=None, q_membernumber=None, q_description=None,
                 Subject, Publisher, Year, ISBN, `Condition`, ConditionDetail,
                 NumItems, FridayPrice, SaturdayPrice, Donate, CheckedIn,
                 CheckedOut, Status, Deleted, MemberNumber
-                FROM Item {} {} {} limit {},{}"""
+                FROM Item {} {} {} ORDER BY ID limit {},{}"""
                     .format(
                         "WHERE ItemNumber like \"{}%%\""
                             .format(nullstring(q_itemnumber)),
@@ -333,6 +334,91 @@ def create_item(payload):
         raise Forbidden("Unable to create resource: IntegrityError")
 
     return new_item
+
+
+### Business logic for Transaction DAOs
+
+def get_transactions_list(q_username=None, q_itemnumber=None, q_transactionnumber=None,
+        page=1, per_page=25):
+
+    page = page if page else 1
+    per_page = per_page if per_page else 25
+
+    db_transaction = (
+                db.session.query(Transaction)
+                .order_by(Transaction.uuid.asc())
+            )
+    if q_username:
+        db_transaction = db_transaction.filter(Transaction.user_username.like("{}%%"
+                .format(q_username)))
+    if q_itemnumber:
+        db_transaction = db_transaction.filter(Transaction.items.like("%%{}%%"
+                .format(q_itemnumber)))
+    if q_transactionnumber:
+        db_transaction = db_transaction.filter(Transaction.uuid.like("%%{}%%"
+                .format(q_transactionnumber)))
+
+    if not app.config['LEGACY_UCS_ENABLED']:
+        pagination = db_transaction.paginate(page=page, per_page=per_page,
+            error_out=False)
+        transactions_l = pagination.items
+    else:
+        pagination = db_transaction.paginate(page=page, per_page=per_page,
+            error_out=False)
+        transactions_l = pagination.items
+        #transactions_l = db_transaction.all()
+
+        legacy_db = sql.connect(
+                host=app.config['LEGACY_UCS_SQLHOST'],
+                user=app.config['LEGACY_UCS_SQLUSER'],
+                passwd=app.config['LEGACY_UCS_SQLPASS'],
+                db=app.config['LEGACY_UCS_SQLDB']
+                )
+        legacy_db.c = legacy_db.cursor()
+        nullstring = lambda x: x if x else ''
+
+        legacy_db.c.execute("""SELECT ID, Date, Checker, Status, Payment_Type,
+                    Payment_Note, Payment_Amount, Total
+                FROM Transaction
+                RIGHT JOIN (
+                    SELECT DISTINCT(TransactionID)
+                    FROM Transaction_Record
+                    {}) as Transaction_Record
+                ON Transaction.ID = Transaction_Record.TransactionID
+                {} {}
+                ORDER BY ID
+                LIMIT {},{};"""
+                        .format(
+                            "WHERE ItemID like \"{}%%\""
+                                .format(nullstring(q_itemnumber)),
+                            "WHERE Checker like \"{}%%\""
+                                .format(nullstring(q_username)),
+                            "AND ID like \"{}%%\""
+                                .format(nullstring(q_transactionnumber)),
+                            (page * per_page - per_page),
+                            per_page,
+                            )
+                        )
+        legacy_transactions_l = legacy_db.c.fetchall()
+
+        for i in legacy_transactions_l:
+            formatprice = lambda x: str(Decimal(x).quantize(Decimal('0.01'),
+                rounding=ROUND_HALF_UP))
+
+            transaction = {
+                'uuid': str(i[0]),
+                'datetime': str(i[1]),
+                'user_username': i[2],
+                'finalized': i[3],
+                'payment_method': i[4],
+                #'total': formatprice(str(i[7])),
+                'total': str(i[7]),
+                }
+            transactions_l.append(transaction)
+
+        #transactions_l = transactions_l[int(0 + (page - 1) * per_page):int(page * per_page)]
+
+    return transactions_l
 
 
 ### Business logic for Item DAOs

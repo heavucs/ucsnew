@@ -3,6 +3,7 @@ from flask_restplus import fields
 RE_PHONENUMBER = r'^[0-9]{10}$'
 RE_ZIP = r'^[0-9]{5}$'
 
+# Item Models
 item_model = {
         'itemnumber': fields.String(
             readonly=True,
@@ -104,6 +105,7 @@ item_model = {
 
 delete_item_model = {}
 
+# Member Models
 member_model = {
         'membernumber': fields.String(
             required=True,
@@ -192,6 +194,37 @@ member_model = {
 
 delete_member_model = {}
 
+# Transaction Models
+transaction_model = {
+        'uuid': fields.String(
+            required=False,
+            description="Unique Identifier"
+            ),
+        'datetime': fields.String(
+            required=False,
+            description="Date/Time transaction was created"
+            ),
+        'user_username': fields.String(
+            required=False,
+            description="User that created this transaction"
+            ),
+        'finalized': fields.String(
+            required=False,
+            description="Indicates Transaction has been finalized"
+            ),
+        'payment_method': fields.String(
+            required=False,
+            description="Indicates method of payment, cash or otherwise"
+            ),
+        'total': fields.String(
+            required=False,
+            description="Total dollar value of transaction"
+            ),
+        }
+
+delete_transaction_model = {}
+
+# User Models
 user_model = {
         'username': fields.String(required=False, description='username'),
         'password': fields.String(required=False, description='password'),

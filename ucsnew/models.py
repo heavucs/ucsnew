@@ -1,9 +1,22 @@
 from flask_sqlalchemy import SQLAlchemy
-from .application import app
+
 from decimal import Decimal, ROUND_HALF_UP
 import datetime
+import uuid
+
+from .application import app
+
 
 db = SQLAlchemy(app)
+
+transaction_item = db.Table('transaction_item', db.Model.metadata,
+            db.Column('transaction_uuid', db.String(36),
+                db.ForeignKey('transactions.uuid')),
+            db.Column('item_itemnumber', db.String(255),
+                db.ForeignKey('items.itemnumber')),
+            mysql_engine='InnoDB',
+            mysql_charset='utf8mb4',
+        )
 
 class DictableBase:
 
@@ -14,9 +27,10 @@ class DictableBase:
 
         return dict
 
+
 class Member(db.Model, DictableBase):
     __tablename__ = 'members'
-    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4',}
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     membernumber = db.Column(db.String(255), primary_key=True)
     established = db.Column(db.Date)
@@ -71,7 +85,7 @@ class Member(db.Model, DictableBase):
 
 class Item(db.Model, DictableBase):
     __tablename__ = 'items'
-    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4',}
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
     itemnumber = db.Column(db.String(255), primary_key=True)
     description = db.Column(db.String(255))
@@ -92,9 +106,8 @@ class Item(db.Model, DictableBase):
     deleted = db.Column(db.String(1))
 
     member_membernumber = db.Column(db.String(255),
-            db.ForeignKey('members.membernumber'), nullable=False)
-    membernumber = db.relationship(Member, backref=db.backref('items',
-        uselist=True, cascade='all, delete-orphan'))
+                            db.ForeignKey('members.membernumber'))
+    membernumber = db.relationship("Member", backref='items')
 
     def __init__(self, itemnumber, membernumber, description, category, subject,
             publisher, year, isbn, condition, conditiondetail, numitems,
@@ -129,9 +142,9 @@ class Item(db.Model, DictableBase):
 
 class User(db.Model, DictableBase):
     __tablename__ = 'users'
-    __table_args__ = {'mysql_engine': 'InnoDB'}
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
-    username = db.Column(db.String(64), primary_key=True, nullable=False)
+    username = db.Column(db.String(64), primary_key=True)
     password = db.Column(db.String(255), nullable=False)
     firstname = db.Column(db.String(255))
     lastname = db.Column(db.String(255))
@@ -151,30 +164,65 @@ class User(db.Model, DictableBase):
     def __repr__(self):
         return '<User %r>' % self.username
 
-class UserRoles(db.Model, DictableBase):
-    __tablename__ = 'userroles'
-    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4',}
+#class UserRoles(db.Model, DictableBase):
+#    __tablename__ = 'userroles'
+#    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4',}
+#
+#    #id = db.Column(db.Integer, primary_key=True, auto_increment=True)
+#    #username = db.Column(db.String(64), nullable=False)
+#    rolename = db.Column(db.String(255), primary_key=True, nullable=False)
+#
+#    users_username = db.Column(db.String(64), db.ForeignKey('users.username'),
+#            primary_key=True, nullable=False)
+#    username = db.relationship(User, backref=db.backref('users', uselist=True,
+#                                cascade='all, delete-orphan'))
+#
+#    def __init__(self, username, rolename):
+#        self.username = str(username)
+#        self.rolename = str(rolename)
+#
+#    def as_api_dict(self):
+#
+#        resource_d = self.as_dict()
+#        resource_d['username'] = self.users.username
+#
+#        return resource_d
+#
+#    def __repr__(self):
+#        return '<Role(user:%s,role:%s)>' % (self.username, self.rolename)
 
-    #id = db.Column(db.Integer, primary_key=True, auto_increment=True)
-    #username = db.Column(db.String(64), nullable=False)
-    rolename = db.Column(db.String(255), primary_key=True, nullable=False)
+class Transaction(db.Model, DictableBase):
+    __tablename__ = 'transactions'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
-    users_username = db.Column(db.String(64), db.ForeignKey('users.username'),
-            primary_key=True, nullable=False)
-    username = db.relationship(User, backref=db.backref('users', uselist=True,
-                                cascade='all, delete-orphan'))
+    uuid = db.Column(db.String(36), primary_key=True, default=uuid.uuid4)
+    datetime = db.Column(db.Date, default=datetime.date.today())
+    finalized = db.Column(db.Boolean, default=False) #0 False, 1 True
+    payment_method = db.Column(db.String(1))
+    total = db.Column(db.DECIMAL(11,4))
 
-    def __init__(self, username, rolename):
-        self.username = str(username)
-        self.rolename = str(rolename)
+    # NOTE: Transactions should never be deleted in the event that a user is delete
+    user_username = db.Column(db.String(64), db.ForeignKey('users.username'))
+    user = db.relationship("User", backref="transactions")
 
-    def as_api_dict(self):
+    items = db.relationship("Item",
+                secondary=transaction_item,
+                backref='transactions')
+
+    def __init__(self, datetime, user, finalized, payment_method,
+            payment_note, total):
+
+        self.datetime = datetime
+        self.user = str(user)
+        self.finalized = bool(finalized)
+        self.payment_method = str(payment_method)
+        self.total = Decimal(total).quantize(Decimal('0.0001'),
+                        rounding=ROUND_HALF_UP)
+
+    def as_api_dict():
 
         resource_d = self.as_dict()
-        resource_d['username'] = self.users.username
 
         return resource_d
-
     def __repr__(self):
-        return '<Role(user:%s,role:%s)>' % (self.username, self.rolename)
-
+        return "<Transaction {}>".format(self.uuid)
