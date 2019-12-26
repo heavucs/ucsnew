@@ -17,4 +17,4 @@ six==1.11.0
 SQLAlchemy==1.2.0
 utils==0.9.0
 uWSGI==2.0.15
-Werkzeug==0.13
+Werkzeug==0.15.3
