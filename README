@@ -1,8 +1,8 @@
 This is a Python Flask application
 
 Written for 
-    - Python 3.5
-    - uwsgi 2.0.12
-    - nginx 1.10.3
+    - Python 3.6.8
+    - uwsgi 2.0.15
+    - nginx 1.14.0
 
 See docs/deployment_instructions.txt for notes on deploying this application.

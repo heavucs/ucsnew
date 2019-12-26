@@ -1,5 +1,5 @@
 from flask_restplus import Api, Resource, fields
-from ..application import http_auth
+from ...application import http_auth
 
 api = Api()
 ns = api.namespace('members', description="Members who are selling items")
@@ -7,7 +7,7 @@ ns = api.namespace('members', description="Members who are selling items")
 from .api_models import member_model
 member_model = ns.model('Member', member_model)
 
-from ..logic import get_members_list, create_member
+from ...logic import get_members_list, create_member
 
 member_parser = ns.parser()
 member_parser.add_argument('membernumber', type=str, location='args',

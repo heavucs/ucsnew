@@ -7,9 +7,9 @@
     cd /var/www/virtualenv/ucsnew
     source bin/activate
     pip install -U pip
-    #pip install flask flask-restplus flask-sqlalchemy flask_httpauth
+    #pip install flask flask-restplus flask-sqlalchemy flask_httpauth barcode
     #pip install mysqlclient # Added for UCS Legacy Support
-    pip install -R requirements.txt
+    pip install -r requirements.txt
 
 2. Setup git environment
 

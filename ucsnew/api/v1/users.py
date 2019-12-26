@@ -1,6 +1,6 @@
 from flask_restplus import Api, Resource, fields
 from flask import g as flask_g
-from ..application import http_auth
+from ...application import http_auth
 
 api = Api()
 ns = api.namespace('users', description="Users of this application")
@@ -9,8 +9,8 @@ from .api_models import user_model, delete_user_model
 user_model = ns.model('User', user_model)
 #delete_user_model = ns.model('User', delete_user_model)
 
-from ..logic import get_users_list, create_user
-from ..logic import get_user, replace_user, delete_user
+from ...logic import get_users_list, create_user
+from ...logic import get_user, replace_user, delete_user
 
 @ns.route('/', methods=['GET','POST'])
 class UserListView(Resource):

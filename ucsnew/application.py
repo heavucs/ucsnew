@@ -85,7 +85,7 @@ app = Flask(__name__)
 load_configuration(app)
 http_auth = HTTPBasicAuth()
 app = create_app(app)
-from .api import api
+from .api.v1 import api
 api.init_app(app)
 
 @http_auth.verify_password

@@ -1,5 +1,5 @@
 from flask_restplus import Api, Resource, fields
-from ..application import http_auth
+from ...application import http_auth
 
 api = Api()
 ns = api.namespace('transactions', description="Transactions for sale")
@@ -7,7 +7,7 @@ ns = api.namespace('transactions', description="Transactions for sale")
 from .api_models import transaction_model
 transaction_model = ns.model('Transaction', transaction_model)
 
-from ..logic import get_transactions_list
+from ...logic import get_transactions_list
 
 transaction_parser = api.parser()
 transaction_parser.add_argument('username', type=str, location='args',

@@ -1,5 +1,5 @@
 from flask_restplus import Api, Resource, fields
-from ..application import http_auth
+from ...application import http_auth
 
 api = Api()
 ns = api.namespace('items', description="Items for sale")
@@ -7,7 +7,7 @@ ns = api.namespace('items', description="Items for sale")
 from .api_models import item_model
 item_model = ns.model('Item', item_model)
 
-from ..logic import get_items_list, create_item
+from ...logic import get_items_list, create_item
 
 item_parser = api.parser()
 item_parser.add_argument('itemnumber', type=str, location='args',
