@@ -233,3 +233,5 @@ user_model = {
         }
 
 delete_user_model = {}
+
+# Barcode Models

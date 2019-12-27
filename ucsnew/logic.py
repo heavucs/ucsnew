@@ -1,5 +1,7 @@
 import datetime
 import re
+import barcode
+from io import BytesIO
 import MySQLdb as sql
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -537,3 +539,49 @@ def delete_user(auth_user, old_username, payload):
             (old_username, auth_user)}
 
 
+### Business logic for Barcode DAOs
+
+def generate_barcode(code):
+
+    if app.config['BARCODE_SYMBOLOGY'] in barcode.PROVIDED_BARCODES:
+
+        app.logger.info("Generating barcode for {}".format(code))
+
+        imgstore = {}
+        imgstore['MEM'] = BytesIO()
+        imgstore['FILE'] = "{}/{}".format(
+                app.config['BARCODE_TEMPDIR'],
+                code
+                )
+
+        barcode_img = imgstore[app.config['BARCODE_STORAGE']]
+        barcode.generate(
+            app.config['BARCODE_SYMBOLOGY'],
+            code,
+            output=barcode_img
+            )
+    else:
+        app.logger.error("Unknown Barcode Symbology: {}".format(
+            app.config['BARCODE_SYMBOLOGY'])
+            )
+        app.logger.error("Set config BARCODE_SYMBOLOGY to one of the following:")
+        app.logger.error("{}".format(PROVIDES_BARCODES))
+
+    if app.config['BARCODE_STORAGE'] == 'FILE':
+        f = open("{}.svg".format(imgstore['FILE']), 'rb')
+        barcode_img = BytesIO(f.read())
+
+    barcode_img.seek(0)
+
+    return barcode_img
+
+def get_barcodes_list():
+
+    barcode_l = list()
+
+    return barcode_l
+
+#def create_barcode(payload):
+def create_barcode(barcode_number):
+
+    return generate_barcode(barcode_number)

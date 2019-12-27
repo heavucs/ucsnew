@@ -47,7 +47,7 @@ class UserResourceView(Resource):
     @ns.response(200, 'OK', model=user_model)
     @ns.response(403, 'Forbidden')
     @ns.response(404, 'Not Found')
-    def put(self, username):
+    def get(self, username):
 
         '''Get a single user'''
 

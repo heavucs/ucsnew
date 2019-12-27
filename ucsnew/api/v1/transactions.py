@@ -2,7 +2,7 @@ from flask_restplus import Api, Resource, fields
 from ...application import http_auth
 
 api = Api()
-ns = api.namespace('transactions', description="Transactions for sale")
+ns = api.namespace('transactions', description="Sales transactions")
 
 from .api_models import transaction_model
 transaction_model = ns.model('Transaction', transaction_model)
