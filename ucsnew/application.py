@@ -91,7 +91,7 @@ api.init_app(app)
 @http_auth.verify_password
 def verify_password(username, password):
     """Decorator placed on views that require authentication"""
-    from .logic import get_user
+    from .logic import get_users
 
     if hasattr(flask_g, 'username'):
         if not flask_g.username == '' and username == '':
@@ -105,7 +105,7 @@ def verify_password(username, password):
         return False
 
     if username == 'admin':
-        if 'ADMIN_PASS_FILE' in app.config and not app.config['ADMIN_PASS_FILE'] == '':
+        if 'ADMIN_PASS_FILE' in app.config:
 
             try:
                 f = open(app.config['ADMIN_PASS_FILE'], 'r')
@@ -122,8 +122,13 @@ def verify_password(username, password):
             else:
                 return False
 
-    if not username == 'admin' and not username == '':
-        user = get_user(username)
+    if not username == '':
+        users_l = get_users(q_username=username, page=1, per_page=1)
+        if len(users_l) < 1:
+            print("User {} not found".format(username))
+            return False
+        else:
+            user = users_l[0].as_dict()
 
         if check_password_hash(user['password'], str(password)):
             flask_g.username = user['username']

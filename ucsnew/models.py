@@ -1,5 +1,4 @@
 from flask_sqlalchemy import SQLAlchemy
-
 from decimal import Decimal, ROUND_HALF_UP
 import datetime
 import uuid
@@ -57,7 +56,6 @@ class Member(db.Model, DictableBase):
             answer, activationcode, admin):
 
         self.membernumber = str(membernumber)
-        #self.established = datetime.datetime.now().date()
         self.established = str(established)
         self.firstname = str(firstname)
         self.lastname = str(lastname)
@@ -163,6 +161,31 @@ class User(db.Model, DictableBase):
 
     def __repr__(self):
         return '<User %r>' % self.username
+
+@db.event.listens_for(User.__table__, 'after_create')
+def insert_initial_values(*args, **kwargs):
+
+    """Initializes admin user when application is started for the first time"""
+
+    from werkzeug.security import generate_password_hash
+
+    new_user = {
+            'username': 'admin',
+            'password': generate_password_hash('admin',
+                app.config['PW_HASH']),
+            'firstname': '',
+            'lastname': '',
+            }
+
+    db.session.add(User(
+        new_user['username'],
+        new_user['password'],
+        new_user['firstname'],
+        new_user['lastname'],
+        ))
+
+    db.session.commit()
+
 
 #class UserRoles(db.Model, DictableBase):
 #    __tablename__ = 'userroles'

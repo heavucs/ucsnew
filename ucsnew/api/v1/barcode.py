@@ -5,10 +5,10 @@ from ...application import http_auth
 api = Api()
 ns = api.namespace('barcodes', description="Generates barcodes")
 
-from ...logic import get_barcodes_list, create_barcode
+from ...logic import generate_barcode
 
-@ns.route('/<string:barcode_number>', endpoint='code')
-@ns.param('barcode_number', description="Resource ID")
+@ns.route('/<string:codedata>', endpoint='codedata')
+@ns.param('codedata', description="Data to be encoded")
 class Barcode(Resource):
 
     @http_auth.login_required
@@ -17,15 +17,15 @@ class Barcode(Resource):
     @ns.response(403, 'Forbidden')
     @ns.response(404, 'Not Found')
     @ns.produces(['image/svg'])
-    def get(self, barcode_number):
+    def get(self, codedata):
 
         '''Generate a barcode'''
 
-        barcode_img = create_barcode(barcode_number)
+        barcode_img = generate_barcode(codedata)
 
         return send_file(
             barcode_img,
             mimetype='image/svg',
             as_attachment=True,
-            attachment_filename='{}.svg'.format(barcode_number)
+            attachment_filename='{}.svg'.format(codedata)
             )

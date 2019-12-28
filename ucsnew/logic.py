@@ -14,17 +14,19 @@ from .models import Transaction
 from .models import User
 
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.exc import NoResultFound
 from werkzeug.exceptions import BadRequest      # 400
 from werkzeug.exceptions import Unauthorized    # 401
 from werkzeug.exceptions import Forbidden       # 403
 from werkzeug.exceptions import NotFound        # 404
+from werkzeug.security import generate_password_hash
 
 from .application import app
 
 
 ### Business logic for Member DAOs
 
-def get_members_list(q_membernumber=None, q_lastname=None, q_phonenumber=None,
+def get_members(q_membernumber=None, q_lastname=None, q_phonenumber=None,
         page=1, per_page=25):
 
     if q_phonenumber == None: q_phonenumber = ""
@@ -46,15 +48,13 @@ def get_members_list(q_membernumber=None, q_lastname=None, q_phonenumber=None,
         db_member = db_member.filter(Member.phone.like("{}%%"
                 .format(q_phonenumber)))
 
-    if not app.config['LEGACY_UCS_ENABLED']:
-        pagination = db_member.paginate(page=page, per_page=per_page,
-            error_out=False)
-        members_l = pagination.items
-    else:
-        pagination = db_member.paginate(page=page, per_page=per_page,
-            error_out=False)
-        members_l = pagination.items
-        #members_l = db_member.all()
+    pagination = db_member.paginate(page=page, per_page=per_page,
+        error_out=False)
+    members_l = pagination.items
+
+    if app.config['LEGACY_UCS_ENABLED']:
+
+        nullstring = lambda x: x if x else ''
 
         legacy_db = sql.connect(
                 host=app.config['LEGACY_UCS_SQLHOST'],
@@ -62,8 +62,8 @@ def get_members_list(q_membernumber=None, q_lastname=None, q_phonenumber=None,
                 passwd=app.config['LEGACY_UCS_SQLPASS'],
                 db=app.config['LEGACY_UCS_SQLDB']
                 )
+
         legacy_db.c = legacy_db.cursor()
-        nullstring = lambda x: x if x else ''
         legacy_db.c.execute("""SELECT MemberNumber, Established, FirstName,
                 LastName, Address, Address2, City, State, Zip, Phone, Email,
                 Password, Question, Answer, ActivationCode, Activated, Admin,
@@ -105,28 +105,26 @@ def get_members_list(q_membernumber=None, q_lastname=None, q_phonenumber=None,
                 }
             members_l.append(member)
 
-        #members_l = members_l[int(0 + (page - 1) * per_page):int(page * per_page)]
-
     return members_l
 
 def create_member(payload):
 
     new_member_d = {
-            'membernumber': payload['membernumber'],
-            'established': datetime.date.today(),
-            'firstname': payload['firstname'],
-            'lastname': payload['lastname'],
-            'address': payload['address'],
-            'address2': payload['address2'],
-            'city': payload['city'],
-            'state': payload['state'],
-            'zipcode': payload['zipcode'],
-            'phone': payload['phone'],
-            'email': payload['email'],
-            'password': payload['password'],
-            'question': payload['question'],
-            'answer': payload['answer'],
-            'activationcode': payload['activationcode'],
+            'membernumber': str(payload['membernumber']),
+            'established': str(datetime.date.today()),
+            'firstname': str(payload['firstname']),
+            'lastname': str(payload['lastname']),
+            'address': str(payload['address']),
+            'address2': str(payload['address2']),
+            'city': str(payload['city']),
+            'state': str(payload['state']),
+            'zipcode': str(payload['zipcode']),
+            'phone': str(payload['phone']),
+            'email': str(payload['email']),
+            'password': str(payload['password']),
+            'question': str(payload['question']),
+            'answer': str(payload['answer']),
+            'activationcode': str(payload['activationcode']),
             'admin': str(payload['admin']),
             }
 
@@ -148,14 +146,13 @@ def create_member(payload):
             new_member_d['activationcode'],
             new_member_d['admin'],
             )
-   
+
     try:
         db.session.add(new_member)
         db.session.commit()
 
         new_member_d = new_member.as_api_dict()
-        # Created as an error since I'm not getting info messages
-        app.logger.error("Created account {}: {} {}"
+        app.logger.info("Created member {}: {} {}"
                 .format(
                     new_member.membernumber,
                     new_member.firstname,
@@ -165,14 +162,229 @@ def create_member(payload):
 
     except IntegrityError as e:
         app.logger.error("IntegrityError: {}".format(e))
-        raise Forbidden("Unable to create resource: IntegrityError")
+        raise Forbidden("Unable to create member: IntegrityError")
 
     return new_member
+
+def replace_member(auth_user, old_membernumber, payload):
+
+    try:
+        db_member = (
+                    Member.query
+                    .filter(Member.membernumber == old_membernumber)
+                    .one()
+                )
+    except NoResultFound:
+        raise NotFound
+
+    new_member_d = {
+            'membernumber': str(payload['membernumber']),
+            'established': db_member.established, # Wont change
+            'firstname': str(payload['firstname']),
+            'lastname': str(payload['lastname']),
+            'address': str(payload['address']),
+            'address2': str(payload['address2']),
+            'city': str(payload['city']),
+            'state': str(payload['state']),
+            'zipcode': str(payload['zipcode']),
+            'phone': str(payload['phone']),
+            'email': str(payload['email']),
+            'password': str(payload['password']),
+            'question': str(payload['question']),
+            'answer': str(payload['answer']),
+            'activationcode': str(payload['activationcode']),
+            'admin': str(payload['admin']),
+            }
+
+    new_member = Member(
+            new_member_d['membernumber'],
+            new_member_d['established'],
+            new_member_d['firstname'],
+            new_member_d['lastname'],
+            new_member_d['address'],
+            new_member_d['address2'],
+            new_member_d['city'],
+            new_member_d['state'],
+            new_member_d['zipcode'],
+            new_member_d['phone'],
+            new_member_d['email'],
+            new_member_d['password'],
+            new_member_d['question'],
+            new_member_d['answer'],
+            new_member_d['activationcode'],
+            new_member_d['admin'],
+            )
+
+    db_member.membernumber = new_member_d['membernumber']
+    db_member.established = new_member_d['established']
+    db_member.firstname = new_member_d['firstname']
+    db_member.lastname = new_member_d['lastname']
+    db_member.address = new_member_d['address']
+    db_member.address2 = new_member_d['address2']
+    db_member.city = new_member_d['city']
+    db_member.state = new_member_d['state']
+    db_member.zipcode = new_member_d['zipcode']
+    db_member.phone = new_member_d['phone']
+    db_member.email = new_member_d['email']
+    db_member.password = new_member_d['password']
+    db_member.question = new_member_d['question']
+    db_member.answer = new_member_d['answer']
+    db_member.activationcode = new_member_d['activationcode']
+    db_member.admin = new_member_d['admin']
+
+    try:
+        db.session.commit()
+
+        db_member = (
+                    Member.query
+                    .filter(Member.membernumber == new_member_d['membernumber'])
+                    .one()
+                )
+        app.logger.info("Replaced member {}: {} {}"
+                .format(
+                    db_member.membernumber,
+                    db_member.firstname,
+                    db_member.lastname,
+                    )
+                )
+
+    except IntegrityError as e:
+        app.logger.error("IntegrityError: {}".format(e))
+        raise Forbidden("Unable to replace resource: IntegrityError")
+
+    return db_member.as_api_dict()
+
+def patch_member(auth_user, old_membernumber, payload):
+
+    try:
+        db_member = (
+                    Member.query
+                    .filter(Member.membernumber == new_member_d['membernumber'])
+                    .one()
+                )
+    except NoResultFound:
+        raise NotFound
+
+    new_member_d = {
+            'membernumber': str(payload.get('membernumber',
+                db_member.membernumber)),
+            'established': db_member.established, # Wont change
+            'firstname': str(payload.get('firstname',
+                db_member.firstname)),
+            'lastname': str(payload.get('lastname',
+                db_member.lastname)),
+            'address': str(payload.get('address',
+                db_member.address)),
+            'address2': str(payload.get('address2',
+                db_member.address2)),
+            'city': str(payload.get('city',
+                db_member.city)),
+            'state': str(payload.get('state',
+                db_member.state)),
+            'zipcode': str(payload.get('zipcode',
+                db_member.zipcode)),
+            'phone': str(payload.get('phone',
+                db_member.phone)),
+            'email': str(payload.get('email',
+                db_member.email)),
+            'password': str(payload.get('password',
+                db_member.password)),
+            'question': str(payload.get('question',
+                db_member.question)),
+            'answer': str(payload.get('answer',
+                db_member.answer)),
+            'activationcode': str(payload.get('activationcode',
+                db_member.activationcode)),
+            'admin': str(payload.get('admin',
+                db_member.admin)),
+            }
+
+    new_member = Member(
+            new_member_d['membernumber'],
+            new_member_d['established'],
+            new_member_d['firstname'],
+            new_member_d['lastname'],
+            new_member_d['address'],
+            new_member_d['address2'],
+            new_member_d['city'],
+            new_member_d['state'],
+            new_member_d['zipcode'],
+            new_member_d['phone'],
+            new_member_d['email'],
+            new_member_d['password'],
+            new_member_d['question'],
+            new_member_d['answer'],
+            new_member_d['activationcode'],
+            new_member_d['admin'],
+            )
+
+    db_member.membernumber = new_member_d['membernumber']
+    db_member.established = new_member_d['established']
+    db_member.firstname = new_member_d['firstname']
+    db_member.lastname = new_member_d['lastname']
+    db_member.address = new_member_d['address']
+    db_member.address2 = new_member_d['address2']
+    db_member.city = new_member_d['city']
+    db_member.state = new_member_d['state']
+    db_member.zipcode = new_member_d['zipcode']
+    db_member.phone = new_member_d['phone']
+    db_member.email = new_member_d['email']
+    db_member.password = new_member_d['password']
+    db_member.question = new_member_d['question']
+    db_member.answer = new_member_d['answer']
+    db_member.activationcode = new_member_d['activationcode']
+    db_member.admin = new_member_d['admin']
+
+    try:
+        db.session.commit()
+
+        db_member = (
+                    Member.query
+                    .filter(Member.membernumber == new_member_d['membernumber'])
+                    .one()
+                )
+        app.logger.info("Patched member {}: {} {}"
+                .format(
+                    db_member.membernumber,
+                    db_member.firstname,
+                    db_member.lastname,
+                    )
+                )
+
+    except IntegrityError as e:
+        app.logger.error("IntegrityError: {}".format(e))
+        raise Forbidden("Unable to patch member: IntegrityError")
+
+    return db_member.as_api_dict()
+
+def delete_member(auth_user, old_membernumber, payload):
+
+    try:
+        db_member = (
+                    Member.query
+                    .filter(Member.membernumber == old_membernumber)
+                    .one()
+                )
+    except NoResultFound:
+        raise NotFound
+
+    try:
+        db.session.delete(db_member)
+        db.session.commit()
+
+        app.logger.info("Deleted member %s" % old_membernumber)
+
+    except IntegrityError as e:
+        app.logger.error("IntegrityError: %s" % str(e))
+        raise Forbidden("Unable to delete item: IntegrityError")
+
+    return {'message': "Member %s successfully deleted by %s" % \
+            (old_membernumber, auth_user)}
 
 
 ### Business logic for Item DAOs
 
-def get_items_list(q_itemnumber=None, q_membernumber=None, q_description=None,
+def get_items(q_itemnumber=None, q_membernumber=None, q_description=None,
         page=1, per_page=25):
 
     page = page if page else 1
@@ -192,15 +404,29 @@ def get_items_list(q_itemnumber=None, q_membernumber=None, q_description=None,
         db_item = db_item.filter(Item.description.like("%%{}%%"
                 .format(q_description)))
 
-    if not app.config['LEGACY_UCS_ENABLED']:
-        pagination = db_item.paginate(page=page, per_page=per_page,
-            error_out=False)
-        items_l = pagination.items
-    else:
-        pagination = db_item.paginate(page=page, per_page=per_page,
-            error_out=False)
-        items_l = pagination.items
-        #items_l = db_item.all()
+    pagination = db_item.paginate(page=page, per_page=per_page,
+        error_out=False)
+    items_l = pagination.items
+
+    if app.config['LEGACY_UCS_ENABLED']:
+
+        nullstring = lambda x: x if x else ''
+        formatprice = lambda x: str(Decimal(x).quantize(Decimal('0.01'),
+            rounding=ROUND_HALF_UP))
+        def formattime(t):
+            re_datetime = r'(\d{4})-(\d{2})-(\d{2})( (\d{2}):(\d{2}):(\d{2}))?'
+            t = re.match(re_datetime, t)
+            if t:
+                if len(t.groups()) >= 8:
+                    t = str(datetime.datetime.strptime(str(t.group(0)),
+                        '%Y-%m-%d %H:%M:%S'))
+                else:
+                    t = datetime.datetime.strptime(str(t.group(0)), '%Y-%m-%d')
+                    t = t.strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                t = '0000-00-00 00:00:00'
+
+            return t
 
         legacy_db = sql.connect(
                 host=app.config['LEGACY_UCS_SQLHOST'],
@@ -208,8 +434,8 @@ def get_items_list(q_itemnumber=None, q_membernumber=None, q_description=None,
                 passwd=app.config['LEGACY_UCS_SQLPASS'],
                 db=app.config['LEGACY_UCS_SQLDB']
                 )
+
         legacy_db.c = legacy_db.cursor()
-        nullstring = lambda x: x if x else ''
         legacy_db.c.execute("""SELECT ID, ItemNumber, Description, Category,
                 Subject, Publisher, Year, ISBN, `Condition`, ConditionDetail,
                 NumItems, FridayPrice, SaturdayPrice, Donate, CheckedIn,
@@ -229,22 +455,6 @@ def get_items_list(q_itemnumber=None, q_membernumber=None, q_description=None,
         legacy_items_l = legacy_db.c.fetchall()
 
         for i in legacy_items_l:
-            formatprice = lambda x: str(Decimal(x).quantize(Decimal('0.01'),
-                rounding=ROUND_HALF_UP))
-            def formattime(t):
-                re_datetime = r'(\d{4})-(\d{2})-(\d{2})( (\d{2}):(\d{2}):(\d{2}))?'
-                t = re.match(re_datetime, t)
-                if t:
-                    if len(t.groups()) >= 8:
-                        t = str(datetime.datetime.strptime(str(t.group(0)),
-                            '%Y-%m-%d %H:%M:%S'))
-                    else:
-                        t = datetime.datetime.strptime(str(t.group(0)), '%Y-%m-%d')
-                        t = t.strftime('%Y-%m-%d %H:%M:%S')
-                else:
-                    t = '0000-00-00 00:00:00'
-
-                return t
 
             item = {
                 'itemnumber': i[0],
@@ -268,8 +478,6 @@ def get_items_list(q_itemnumber=None, q_membernumber=None, q_description=None,
                 }
             items_l.append(item)
 
-        #items_l = items_l[int(0 + (page - 1) * per_page):int(page * per_page)]
-
     return items_l
 
 def create_item(payload):
@@ -278,21 +486,21 @@ def create_item(payload):
 
     new_item_d = {
             'itemnumber': str(itemnumber),
-            'membernumber': payload['membernumber'],
-            'description': payload['description'],
-            'category': payload['category'],
-            'subject': payload['subject'],
-            'publisher': payload['publisher'],
-            'year': payload['year'],
-            'isbn': payload['isbn'],
-            'condition': payload['condition'],
-            'conditiondetail': payload['conditiondetail'],
-            'numitems': payload['numitems'],
+            'membernumber': str(payload['membernumber']),
+            'description': str(payload['description']),
+            'category': str(payload['category']),
+            'subject': str(payload['subject']),
+            'publisher': str(payload['publisher']),
+            'year': str(payload['year']),
+            'isbn': str(payload['isbn']),
+            'condition': str(payload['condition']),
+            'conditiondetail': str(payload['conditiondetail']),
+            'numitems': str(payload['numitems']),
             'price': Decimal(str(payload['price'])) \
                     .quantize(Decimal(".01"), ROUND_HALF_UP),
             'discountprice': Decimal(str(payload['discountprice'])) \
                     .quantize(Decimal(".01"), ROUND_HALF_UP),
-            'donate': payload['donate'],
+            'donate': str(payload['donate']),
             }
 
     new_item = Item(
@@ -323,8 +531,7 @@ def create_item(payload):
                     .first()
                 )
 
-        # Created as an error since I'm not getting info messages
-        app.logger.error("Created item {}: {}"
+        app.logger.info("Created item {}: {}"
                 .format(
                     new_item.ID,
                     new_item.Description
@@ -336,6 +543,219 @@ def create_item(payload):
         raise Forbidden("Unable to create resource: IntegrityError")
 
     return new_item
+
+def replace_item(auth_user, old_itemnumber, payload):
+
+    try:
+        db_item = (
+                    Item.query
+                    .filter(Item.itemnumber == old_itemnumber)
+                    .one()
+                )
+    except NoResultFound:
+        raise NotFound
+
+    new_item_d = {
+            'itemnumber': str(db_item.itemnumber),
+            'membernumber': str(payload['membernumber']),
+            'description': str(payload['description']),
+            'category': str(payload['category']),
+            'subject': str(payload['subject']),
+            'publisher': str(payload['publisher']),
+            'year': str(payload['year']),
+            'isbn': str(payload['isbn']),
+            'condition': str(payload['condition']),
+            'conditiondetail': str(payload['conditiondetail']),
+            'numitems': str(payload['numitems']),
+            'price': Decimal(str(payload['price'])) \
+                    .quantize(Decimal(".01"), ROUND_HALF_UP),
+            'discountprice': Decimal(str(payload['discountprice'])) \
+                    .quantize(Decimal(".01"), ROUND_HALF_UP),
+            'donate': str(payload['donate']),
+            }
+
+    new_item = Item(
+            new_item_d['itemnumber'],
+            new_item_d['membernumber'],
+            new_item_d['description'],
+            new_item_d['category'],
+            new_item_d['subject'],
+            new_item_d['publisher'],
+            new_item_d['year'],
+            new_item_d['isbn'],
+            new_item_d['condition'],
+            new_item_d['conditiondetail'],
+            new_item_d['numitems'],
+            new_item_d['price'],
+            new_item_d['discountprice'],
+            new_item_d['donate'],
+            )
+
+    db_item.itemnumber = new_item_d['itemnumber'],
+    db_item.membernumber = new_item_d['membernumber'],
+    db_item.description = new_item_d['description'],
+    db_item.category = new_item_d['category'],
+    db_item.subject = new_item_d['subject'],
+    db_item.publisher = new_item_d['publisher'],
+    db_item.year = new_item_d['year'],
+    db_item.isbn = new_item_d['isbn'],
+    db_item.condition = new_item_d['condition'],
+    db_item.conditiondetail = new_item_d['conditiondetail'],
+    db_item.numitems = new_item_d['numitems'],
+    db_item.price = new_item_d['price'],
+    db_item.discountprice = new_item_d['discountprice'],
+    db_item.donate = new_item_d['donate'],
+
+    try:
+        db.session.commit()
+
+        db_item = (
+                Item.query
+                    .filter(Item.MemberNumber == payload['MemberNumber'])
+                    .filter(Item.ItemNumber == itemnumber)
+                    .one()
+                )
+
+        app.logger.info("Replaced item {}: {}"
+                .format(
+                    new_item.ID,
+                    new_item.Description
+                    )
+                )
+
+    except IntegrityError as e:
+        app.logger.error("IntegrityError: {}".format(e))
+        raise Forbidden("Unable to replace item: IntegrityError")
+
+    return db_item.as_api_dict()
+
+def patch_item(auth_user, old_itemnumber, payload):
+
+    try:
+        db_item = (
+                    Item.query
+                    .filter(Item.itemnumber == old_itemnumber)
+                    .one()
+                )
+    except NoResultFound:
+        raise NotFound
+
+    new_item_d = {
+            'itemnumber': str(db_item.itemnumber),
+            'membernumber': str(payload.get('membernumber',
+                db_item.membernumber)),
+            'description': str(payload.get('description',
+                db_item.description)),
+            'category': str(payload.get('category',
+                db_item.category)),
+            'subject': str(payload.get('subject',
+                db_item.subject)),
+            'publisher': str(payload.get('publisher',
+                db_item.publisher)),
+            'year': str(payload.get('year',
+                db_item.year)),
+            'isbn': str(payload.get('isbn',
+                db_item.isbn)),
+            'condition': str(payload.get('condition',
+                db_item.condition)),
+            'conditiondetail': str(payload.get('conditiondetail',
+                db_item.conditiondetail)),
+            'numitems': str(payload.get('numitems',
+                db_item.numitems)),
+            'price': Decimal(
+                str(payload.get('price', db_item.price)) \
+                    .quantize(Decimal(".01")),
+                ROUND_HALF_UP
+                ),
+            'discountprice': Decimal(
+                str(payload.get('discountprice', db_item.discountprice)) \
+                    .quantize(Decimal(".01")),
+                ROUND_HALF_UP
+                ),
+            'donate': str(payload.get('donate',
+                db_item.donate)),
+            }
+
+    new_item = Item(
+            new_item_d['itemnumber'],
+            new_item_d['membernumber'],
+            new_item_d['description'],
+            new_item_d['category'],
+            new_item_d['subject'],
+            new_item_d['publisher'],
+            new_item_d['year'],
+            new_item_d['isbn'],
+            new_item_d['condition'],
+            new_item_d['conditiondetail'],
+            new_item_d['numitems'],
+            new_item_d['price'],
+            new_item_d['discountprice'],
+            new_item_d['donate'],
+            )
+
+    db_item.itemnumber = new_item_d['itemnumber'],
+    db_item.membernumber = new_item_d['membernumber'],
+    db_item.description = new_item_d['description'],
+    db_item.category = new_item_d['category'],
+    db_item.subject = new_item_d['subject'],
+    db_item.publisher = new_item_d['publisher'],
+    db_item.year = new_item_d['year'],
+    db_item.isbn = new_item_d['isbn'],
+    db_item.condition = new_item_d['condition'],
+    db_item.conditiondetail = new_item_d['conditiondetail'],
+    db_item.numitems = new_item_d['numitems'],
+    db_item.price = new_item_d['price'],
+    db_item.discountprice = new_item_d['discountprice'],
+    db_item.donate = new_item_d['donate'],
+
+    try:
+        db.session.commit()
+
+        db_item = (
+                Item.query
+                    .filter(Item.MemberNumber == payload['MemberNumber'])
+                    .filter(Item.ItemNumber == itemnumber)
+                    .one()
+                )
+
+        app.logger.info("Patched item {}: {}"
+                .format(
+                    new_item.ID,
+                    new_item.Description
+                    )
+                )
+
+    except IntegrityError as e:
+        app.logger.error("IntegrityError: {}".format(e))
+        raise Forbidden("Unable to patch item: IntegrityError")
+
+    return db_item.as_api_dict()
+
+def delete_item(auth_user, old_itemnumber, payload):
+
+    try:
+        db_item = (
+                    Item.query
+                    .filter(Item.itemnumber == old_itemnumber)
+                    .one()
+                )
+    except NoResultFound:
+        raise NotFound
+
+    db_item.deleted = '1'
+
+    try:
+        #db.session.delete(db_item)
+        db.session.commit()
+
+        app.logger.info("Deleted item %s" % old_itemnumber)
+
+    except IntegrityError as e:
+        app.logger.error("IntegrityError: %s" % str(e))
+        raise Forbidden("Unable to delete item: IntegrityError")
+
+    return {'message': "Item %s successfully deleted by %s" % \
+            (old_itemnumber, auth_user)}
 
 
 ### Business logic for Transaction DAOs
@@ -360,15 +780,14 @@ def get_transactions_list(q_username=None, q_itemnumber=None, q_transactionnumbe
         db_transaction = db_transaction.filter(Transaction.uuid.like("%%{}%%"
                 .format(q_transactionnumber)))
 
-    if not app.config['LEGACY_UCS_ENABLED']:
-        pagination = db_transaction.paginate(page=page, per_page=per_page,
-            error_out=False)
-        transactions_l = pagination.items
-    else:
-        pagination = db_transaction.paginate(page=page, per_page=per_page,
-            error_out=False)
-        transactions_l = pagination.items
-        #transactions_l = db_transaction.all()
+    pagination = db_transaction.paginate(page=page, per_page=per_page,
+        error_out=False)
+    transactions_l = pagination.items
+    if app.config['LEGACY_UCS_ENABLED']:
+
+        nullstring = lambda x: x if x else ''
+        formatprice = lambda x: str(Decimal(x).quantize(Decimal('0.01'),
+            rounding=ROUND_HALF_UP))
 
         legacy_db = sql.connect(
                 host=app.config['LEGACY_UCS_SQLHOST'],
@@ -376,9 +795,8 @@ def get_transactions_list(q_username=None, q_itemnumber=None, q_transactionnumbe
                 passwd=app.config['LEGACY_UCS_SQLPASS'],
                 db=app.config['LEGACY_UCS_SQLDB']
                 )
-        legacy_db.c = legacy_db.cursor()
-        nullstring = lambda x: x if x else ''
 
+        legacy_db.c = legacy_db.cursor()
         legacy_db.c.execute("""SELECT ID, Date, Checker, Status, Payment_Type,
                     Payment_Note, Payment_Amount, Total
                 FROM Transaction
@@ -404,8 +822,6 @@ def get_transactions_list(q_username=None, q_itemnumber=None, q_transactionnumbe
         legacy_transactions_l = legacy_db.c.fetchall()
 
         for i in legacy_transactions_l:
-            formatprice = lambda x: str(Decimal(x).quantize(Decimal('0.01'),
-                rounding=ROUND_HALF_UP))
 
             transaction = {
                 'uuid': str(i[0]),
@@ -413,34 +829,40 @@ def get_transactions_list(q_username=None, q_itemnumber=None, q_transactionnumbe
                 'user_username': i[2],
                 'finalized': i[3],
                 'payment_method': i[4],
-                #'total': formatprice(str(i[7])),
                 'total': str(i[7]),
                 }
             transactions_l.append(transaction)
 
-        #transactions_l = transactions_l[int(0 + (page - 1) * per_page):int(page * per_page)]
-
     return transactions_l
 
 
-### Business logic for Item DAOs
+### Business logic for User DAOs
 
-from werkzeug.security import check_password_hash, generate_password_hash
+def get_users(q_username=None, q_firstname=None, q_lastname=None,
+        page=1, per_page=25):
 
-def get_users_list():
+    page = page if page else 1
+    per_page = per_page if per_page else 25
 
-    users_l = User.query.all()
+    db_user = (
+            db.session.query(User)
+            .order_by(User.username.asc())
+        )
+    if q_username:
+        db_user = db_user.filter(User.username.like("{}%%"
+                .format(q_username)))
+    if q_firstname:
+        db_user = db_user.filter(User.firstname.like("{}%%"
+                .format(q_firstname)))
+    if q_lastname:
+        db_user = db_user.filter(User.lastname.like("{}%%"
+                .format(q_lastname)))
+
+    pagination = db_user.paginate(page=page, per_page=per_page,
+            error_out=False)
+    users_l = pagination.items
 
     return users_l
-
-def get_user(username):
-
-    db_user = User.query.filter(User.username == username).first()
-
-    if db_user is not None:
-        return db_user.as_api_dict()
-    else:
-        raise NotFound("Resource user %s not found" % username)
 
 def create_user(payload):
 
@@ -468,8 +890,6 @@ def create_user(payload):
             first()
 
         app.logger.info("Created user %s" % db_user.username)
-        # Created as an error since I'm not getting info messages
-        app.logger.error("Created user %s" % (db_user.username))
 
     except IntegrityError as e:
         app.logger.error("IntegrityError: %s" % str(e))
@@ -479,20 +899,17 @@ def create_user(payload):
 
 def replace_user(auth_user, old_username, payload):
 
-    db_user = User.query.filter(User.username == old_username).first()
-    if not db_user:
+    try:
+        db_user = User.query.filter(User.username == old_username).one()
+    except:
         raise NotFound
 
-    if 'password' in payload:
-        payload['password'] = generate_password_hash(
-                str(payload['password']), app.config['PW_HASH']
-                )
-
     new_user = {
-            'username': payload.get('username', db_user.username),
-            'password': payload.get('password', db_user.password),
-            'firstname': payload.get('firstname', db_user.firstname),
-            'lastname': payload.get('lastname', db_user.lastname),
+            'username': str(payload['username']),
+            'password': generate_password_hash(str(payload['password']),
+                app.config['PW_HASH']),
+            'firstname': str(payload['firstname']),
+            'lastname': str(payload['lastname']),
             }
 
     db_user.username = new_user.get('username',db_user.username)
@@ -503,12 +920,9 @@ def replace_user(auth_user, old_username, payload):
     try:
         db.session.commit()
 
-        db_user = User.query.filter(User.username == new_user['username']).first()
+        db_user = User.query.filter(User.username == new_user['username']).one()
 
         app.logger.info("Replaced user %s with %s" % \
-                (old_username, db_user.username))
-        # Created as an error since I'm not getting info messages
-        app.logger.error("Replaced user %s with %s" % \
                 (old_username, db_user.username))
 
     except IntegrityError as e:
@@ -517,10 +931,48 @@ def replace_user(auth_user, old_username, payload):
 
     return db_user
 
+def patch_user(auth_user, old_username, payload):
+
+    try:
+        db_user = User.query.filter(User.username == old_username).one()
+    except:
+        raise NotFound
+
+    new_user = {
+            'username': str(payload.get('username', db_user.username)),
+            'password': str(payload.get('password', db_user.password)),
+            'firstname': str(payload.get('firstname', db_user.firstname)),
+            'lastname': str(payload.get('lastname', db_user.lastname)),
+            }
+
+    if 'password' in payload:
+        new_user['password'] = generate_password_hash(str(payload['password']),
+                app.config['PW_HASH']),
+
+    db_user.username = new_user.get('username',db_user.username)
+    db_user.password = new_user.get('password',db_user.password)
+    db_user.firstname = new_user.get('firstname',db_user.firstname)
+    db_user.lastname = new_user.get('lastname',db_user.lastname)
+
+    try:
+        db.session.commit()
+
+        db_user = User.query.filter(User.username == new_user['username']).one()
+
+        app.logger.info("Patched user %s with %s" % \
+                (old_username, db_user.username))
+
+    except IntegrityError as e:
+        app.logger.error("IntegrityError: %s" % str(e))
+        raise Forbidden("Unable to patch resource: IntegrityError")
+
+    return db_user
+
 def delete_user(auth_user, old_username, payload):
 
-    db_user = User.query.filter(User.username == old_username).first()
-    if not db_user:
+    try:
+        db_user = User.query.filter(User.username == old_username).one()
+    except:
         raise NotFound
 
     try:
@@ -528,8 +980,6 @@ def delete_user(auth_user, old_username, payload):
         db.session.commit()
 
         app.logger.info("Deleted user %s" % old_username)
-        # Created as an error since I'm not getting info messages
-        app.logger.error("Deleted user %s" % old_username)
 
     except IntegrityError as e:
         app.logger.error("IntegrityError: %s" % str(e))
@@ -541,7 +991,7 @@ def delete_user(auth_user, old_username, payload):
 
 ### Business logic for Barcode DAOs
 
-def generate_barcode(code):
+def generate_barcode(codedata):
 
     if app.config['BARCODE_SYMBOLOGY'] in barcode.PROVIDED_BARCODES:
 
@@ -574,14 +1024,3 @@ def generate_barcode(code):
     barcode_img.seek(0)
 
     return barcode_img
-
-def get_barcodes_list():
-
-    barcode_l = list()
-
-    return barcode_l
-
-#def create_barcode(payload):
-def create_barcode(barcode_number):
-
-    return generate_barcode(barcode_number)
