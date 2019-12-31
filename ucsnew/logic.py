@@ -995,19 +995,19 @@ def generate_barcode(codedata):
 
     if app.config['BARCODE_SYMBOLOGY'] in barcode.PROVIDED_BARCODES:
 
-        app.logger.info("Generating barcode for {}".format(code))
+        app.logger.info("Generating barcode for {}".format(codedata))
 
         imgstore = {}
         imgstore['MEM'] = BytesIO()
         imgstore['FILE'] = "{}/{}".format(
                 app.config['BARCODE_TEMPDIR'],
-                code
+                codedata
                 )
 
         barcode_img = imgstore[app.config['BARCODE_STORAGE']]
         barcode.generate(
             app.config['BARCODE_SYMBOLOGY'],
-            code,
+            codedata,
             output=barcode_img
             )
     else:
