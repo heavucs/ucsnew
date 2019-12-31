@@ -70,7 +70,7 @@ class Member(db.Model, DictableBase):
         self.question = str(question)
         self.answer = str(answer)
         self.activationcode = str(activationcode)
-        self.admin = str(admin)
+        self.admin = int(admin)
 
     def as_api_dict(self):
 

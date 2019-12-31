@@ -108,75 +108,75 @@ delete_item_model = {}
 # Member Models
 member_model = {
         'membernumber': fields.String(
-            required=True,
+            required=False,
             description='Account Number'
             ),
         'established': fields.DateTime(
-            required=True,
+            required=False,
             description='DateTime account was created'
             ),
         'firstname': fields.String(
-            required=True,
+            required=False,
             description='First name associated with Account'
             ),
         'lastname': fields.String(
-            required=True,
+            required=False,
             description='Last name associated with Account'
             ),
         'address': fields.String(
-            required=True,
+            required=False,
             description='Mailing address 1'
             ),
         'address2': fields.String(
-            required=True,
+            required=False,
             description='Mailing address 2'
             ),
         'city': fields.String(
-            required=True,
+            required=False,
             description='Mailing city'
             ),
         'state': fields.String(
-            required=True,
+            required=False,
             description='Mailing state'
             ),
         'zipcode': fields.String(
-            required=True,
+            required=False,
             description='Mailing zip',
             example='12345',
             pattern=RE_ZIP
             ),
         'phone': fields.String(
-            required=True,
+            required=False,
             description='Contact number',
             example='1231231234',
             pattern=RE_PHONENUMBER
             ),
         'email': fields.String(
-            required=True,
+            required=False,
             descrpition='Contact e-mail'
             ),
         'password': fields.String(
-            required=True,
+            required=False,
             description='Account password'
             ),
         'question': fields.String(
-            required=True,
+            required=False,
             description='Secret question for password retrieval'
             ),
         'answer': fields.String(
-            required=True,
+            required=False,
             description='Secret answer for secret question'
             ),
         'activationcode': fields.String(
-            required=True,
+            required=False,
             description='Activation code'
             ),
         'activated': fields.DateTime(
-            required=True,
+            required=False,
             description='DateTime Account was activated'
             ),
         'admin': fields.Integer(
-            required=True,
+            required=False,
             description='0:False,1:True',
             example=0,
             min=0,

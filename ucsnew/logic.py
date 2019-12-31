@@ -128,7 +128,7 @@ def create_member(payload):
             'admin': str(payload['admin']),
             }
 
-    new_member = Member(
+    db_member = Member(
             new_member_d['membernumber'],
             new_member_d['established'],
             new_member_d['firstname'],
@@ -148,15 +148,16 @@ def create_member(payload):
             )
 
     try:
-        db.session.add(new_member)
+        db.session.add(db_member)
         db.session.commit()
 
-        new_member_d = new_member.as_api_dict()
+        new_member_d = db_member.as_api_dict()
+
         app.logger.info("Created member {}: {} {}"
                 .format(
-                    new_member.membernumber,
-                    new_member.firstname,
-                    new_member.lastname,
+                    new_member_d['membernumber'],
+                    new_member_d['firstname'],
+                    new_member_d['lastname'],
                     )
                 )
 
@@ -164,7 +165,7 @@ def create_member(payload):
         app.logger.error("IntegrityError: {}".format(e))
         raise Forbidden("Unable to create member: IntegrityError")
 
-    return new_member
+    return new_member_d
 
 def replace_member(auth_user, old_membernumber, payload):
 
@@ -196,25 +197,6 @@ def replace_member(auth_user, old_membernumber, payload):
             'admin': str(payload['admin']),
             }
 
-    new_member = Member(
-            new_member_d['membernumber'],
-            new_member_d['established'],
-            new_member_d['firstname'],
-            new_member_d['lastname'],
-            new_member_d['address'],
-            new_member_d['address2'],
-            new_member_d['city'],
-            new_member_d['state'],
-            new_member_d['zipcode'],
-            new_member_d['phone'],
-            new_member_d['email'],
-            new_member_d['password'],
-            new_member_d['question'],
-            new_member_d['answer'],
-            new_member_d['activationcode'],
-            new_member_d['admin'],
-            )
-
     db_member.membernumber = new_member_d['membernumber']
     db_member.established = new_member_d['established']
     db_member.firstname = new_member_d['firstname']
@@ -235,11 +217,8 @@ def replace_member(auth_user, old_membernumber, payload):
     try:
         db.session.commit()
 
-        db_member = (
-                    Member.query
-                    .filter(Member.membernumber == new_member_d['membernumber'])
-                    .one()
-                )
+        new_member_d = db_member.as_api_dict()
+
         app.logger.info("Replaced member {}: {} {}"
                 .format(
                     db_member.membernumber,
@@ -252,14 +231,14 @@ def replace_member(auth_user, old_membernumber, payload):
         app.logger.error("IntegrityError: {}".format(e))
         raise Forbidden("Unable to replace resource: IntegrityError")
 
-    return db_member.as_api_dict()
+    return new_member_d
 
 def patch_member(auth_user, old_membernumber, payload):
 
     try:
         db_member = (
                     Member.query
-                    .filter(Member.membernumber == new_member_d['membernumber'])
+                    .filter(Member.membernumber == old_membernumber)
                     .one()
                 )
     except NoResultFound:
@@ -299,25 +278,6 @@ def patch_member(auth_user, old_membernumber, payload):
                 db_member.admin)),
             }
 
-    new_member = Member(
-            new_member_d['membernumber'],
-            new_member_d['established'],
-            new_member_d['firstname'],
-            new_member_d['lastname'],
-            new_member_d['address'],
-            new_member_d['address2'],
-            new_member_d['city'],
-            new_member_d['state'],
-            new_member_d['zipcode'],
-            new_member_d['phone'],
-            new_member_d['email'],
-            new_member_d['password'],
-            new_member_d['question'],
-            new_member_d['answer'],
-            new_member_d['activationcode'],
-            new_member_d['admin'],
-            )
-
     db_member.membernumber = new_member_d['membernumber']
     db_member.established = new_member_d['established']
     db_member.firstname = new_member_d['firstname']
@@ -338,16 +298,13 @@ def patch_member(auth_user, old_membernumber, payload):
     try:
         db.session.commit()
 
-        db_member = (
-                    Member.query
-                    .filter(Member.membernumber == new_member_d['membernumber'])
-                    .one()
-                )
+        new_member_d = db_member.as_api_dict()
+
         app.logger.info("Patched member {}: {} {}"
                 .format(
-                    db_member.membernumber,
-                    db_member.firstname,
-                    db_member.lastname,
+                    new_member_d['membernumber'],
+                    new_member_d['firstname'],
+                    new_member_d['lastname'],
                     )
                 )
 
@@ -355,7 +312,7 @@ def patch_member(auth_user, old_membernumber, payload):
         app.logger.error("IntegrityError: {}".format(e))
         raise Forbidden("Unable to patch member: IntegrityError")
 
-    return db_member.as_api_dict()
+    return new_member_d
 
 def delete_member(auth_user, old_membernumber, payload):
 
@@ -503,7 +460,7 @@ def create_item(payload):
             'donate': str(payload['donate']),
             }
 
-    new_item = Item(
+    db_item = Item(
             new_item_d['itemnumber'],
             new_item_d['membernumber'],
             new_item_d['description'],
@@ -521,20 +478,15 @@ def create_item(payload):
             )
 
     try:
-        db.session.add(new_item)
+        db.session.add(db_item)
         db.session.commit()
 
-        new_item = (
-                Item.query
-                    .filter(Item.MemberNumber == payload['MemberNumber'])
-                    .filter(Item.ItemNumber == itemnumber)
-                    .first()
-                )
+        new_item_d = db_item.as_api_dict()
 
         app.logger.info("Created item {}: {}"
                 .format(
-                    new_item.ID,
-                    new_item.Description
+                    new_item_d['ID'],
+                    new_item_d['Description'],
                     )
                 )
 
@@ -542,7 +494,7 @@ def create_item(payload):
         app.logger.error("IntegrityError: {}".format(e))
         raise Forbidden("Unable to create resource: IntegrityError")
 
-    return new_item
+    return new_item_d
 
 def replace_item(auth_user, old_itemnumber, payload):
 
@@ -574,23 +526,6 @@ def replace_item(auth_user, old_itemnumber, payload):
             'donate': str(payload['donate']),
             }
 
-    new_item = Item(
-            new_item_d['itemnumber'],
-            new_item_d['membernumber'],
-            new_item_d['description'],
-            new_item_d['category'],
-            new_item_d['subject'],
-            new_item_d['publisher'],
-            new_item_d['year'],
-            new_item_d['isbn'],
-            new_item_d['condition'],
-            new_item_d['conditiondetail'],
-            new_item_d['numitems'],
-            new_item_d['price'],
-            new_item_d['discountprice'],
-            new_item_d['donate'],
-            )
-
     db_item.itemnumber = new_item_d['itemnumber'],
     db_item.membernumber = new_item_d['membernumber'],
     db_item.description = new_item_d['description'],
@@ -609,17 +544,12 @@ def replace_item(auth_user, old_itemnumber, payload):
     try:
         db.session.commit()
 
-        db_item = (
-                Item.query
-                    .filter(Item.MemberNumber == payload['MemberNumber'])
-                    .filter(Item.ItemNumber == itemnumber)
-                    .one()
-                )
+        new_item_d = db_item.as_api_dict()
 
         app.logger.info("Replaced item {}: {}"
                 .format(
-                    new_item.ID,
-                    new_item.Description
+                    new_item_d['ID'],
+                    new_item_d['Description'],
                     )
                 )
 
@@ -627,7 +557,7 @@ def replace_item(auth_user, old_itemnumber, payload):
         app.logger.error("IntegrityError: {}".format(e))
         raise Forbidden("Unable to replace item: IntegrityError")
 
-    return db_item.as_api_dict()
+    return new_item_d
 
 def patch_item(auth_user, old_itemnumber, payload):
 
@@ -676,23 +606,6 @@ def patch_item(auth_user, old_itemnumber, payload):
                 db_item.donate)),
             }
 
-    new_item = Item(
-            new_item_d['itemnumber'],
-            new_item_d['membernumber'],
-            new_item_d['description'],
-            new_item_d['category'],
-            new_item_d['subject'],
-            new_item_d['publisher'],
-            new_item_d['year'],
-            new_item_d['isbn'],
-            new_item_d['condition'],
-            new_item_d['conditiondetail'],
-            new_item_d['numitems'],
-            new_item_d['price'],
-            new_item_d['discountprice'],
-            new_item_d['donate'],
-            )
-
     db_item.itemnumber = new_item_d['itemnumber'],
     db_item.membernumber = new_item_d['membernumber'],
     db_item.description = new_item_d['description'],
@@ -711,17 +624,12 @@ def patch_item(auth_user, old_itemnumber, payload):
     try:
         db.session.commit()
 
-        db_item = (
-                Item.query
-                    .filter(Item.MemberNumber == payload['MemberNumber'])
-                    .filter(Item.ItemNumber == itemnumber)
-                    .one()
-                )
+        new_item_d = db_item.as_api_dict()
 
         app.logger.info("Patched item {}: {}"
                 .format(
-                    new_item.ID,
-                    new_item.Description
+                    new_item_d['ID'],
+                    new_item_d['Description'],
                     )
                 )
 
@@ -729,7 +637,7 @@ def patch_item(auth_user, old_itemnumber, payload):
         app.logger.error("IntegrityError: {}".format(e))
         raise Forbidden("Unable to patch item: IntegrityError")
 
-    return db_item.as_api_dict()
+    return new_item_d
 
 def delete_item(auth_user, old_itemnumber, payload):
 
@@ -760,7 +668,7 @@ def delete_item(auth_user, old_itemnumber, payload):
 
 ### Business logic for Transaction DAOs
 
-def get_transactions_list(q_username=None, q_itemnumber=None, q_transactionnumber=None,
+def get_transactions(q_username=None, q_itemnumber=None, q_transactionnumber=None,
         page=1, per_page=25):
 
     page = page if page else 1
@@ -835,6 +743,155 @@ def get_transactions_list(q_username=None, q_itemnumber=None, q_transactionnumbe
 
     return transactions_l
 
+def create_transaction(auth_user, payload):
+
+    new_transaction_d = {
+            datetime: datetime.date.now(),
+            user: auth_user,
+            finalized: False,
+            payment_method: "0",
+            total: Decimal(0)
+            }
+
+    db_transaction = Transaction(
+            new_transaction_d['datetime'],
+            new_transaction_d['user'],
+            new_transaction_d['finalized'],
+            new_transaction_d['payment_method'],
+            new_transaction_d['total'],
+            )
+
+    try:
+        db.session.add(db_transaction)
+        db.session.commit()
+
+        new_transaction_d = new_transaction.as_api_dict()
+        app.logger.info("Created transaction {}"
+                .format(
+                    new_transaction.uuid,
+                    )
+                )
+
+    except IntegrityError as e:
+        app.logger.error("IntegrityError: {}".format(e))
+        raise Forbidden("Unable to create transaction: IntegrityError")
+
+    return new_transaction.as_api_dict()
+
+def replace_transaction(auth_user, old_transaction_uuid, payload):
+
+    try:
+        db_transaction = (
+                    Transaction.query
+                    .filter(Transaction.uuid == old_transaction_uuid)
+                    .one()
+                )
+    except NoResultFound:
+        raise NotFound
+
+    new_transaction_d = {
+            'uuid': db_transaction.uuid,
+            'datetime': db_transaction.datetime,
+            'finalized': str(payload['finalized']),
+            'payment_method': str(payload['payment_method']),
+            'total': str(payload['total']),
+            }
+
+    db_transaction.uuid = new_transaction_d['uuid'],
+    db_transaction.datetime = new_transaction_d['datetime'],
+    db_transaction.finalized = new_transaction_d['finalized'],
+    db_transaction.payment_method = new_transaction_d['payment_method'],
+    db_transaction.total = new_transaction_d['total'],
+
+    try:
+        db.session.commit()
+
+        new_transaction_d = db_transaction.as_api_dict()
+
+        app.logger.info("Replaced transaction {}"
+                .format(
+                    new_transaction_d['uuid'],
+                    )
+                )
+
+    except IntegrityError as e:
+        app.logger.error("IntegrityError: {}".format(e))
+        raise Forbidden("Unable to replace item: IntegrityError")
+
+    return new_transaction_d
+
+def patch_transaction(auth_user, old_transaction_uuid, payload):
+
+    try:
+        db_transaction = (
+                    Transaction.query
+                    .filter(Transaction.uuid == old_transaction_uuid)
+                    .one()
+                )
+    except NoResultFound:
+        raise NotFound
+
+    new_transaction_d = {
+            'uuid': db_transaction.uuid,
+            'datetime': db_transaction.datetime,
+            'finalized': str(payload.get('finalized',
+                db_transaction.finalized)),
+            'payment_method': str(payload.get('payment_method',
+                db_transaction.payment_method)),
+            'total': str(payload.get('total',
+                db_transaction.total)),
+            }
+
+    db_transaction.uuid = new_transaction_d['uuid'],
+    db_transaction.datetime = new_transaction_d['datetime'],
+    db_transaction.finalized = new_transaction_d['finalized'],
+    db_transaction.payment_method = new_transaction_d['payment_method'],
+    db_transaction.total = new_transaction_d['total'],
+
+    try:
+        db.session.commit()
+
+        new_transaction_d = db_transaction.as_api_dict()
+
+        app.logger.info("Patched transaction {}"
+                .format(
+                    new_item_d['uuid'],
+                    )
+                )
+
+    except IntegrityError as e:
+        app.logger.error("IntegrityError: {}".format(e))
+        raise Forbidden("Unable to patch item: IntegrityError")
+
+    return new_transaction_d
+
+def delete_transaction(auth_user, old_transaction_uuid, payload):
+
+    try:
+        db_transaction = (
+                    Transaction.query
+                    .filter(Transaction.uuid == old_transaction_uuid)
+                    .one()
+                )
+    except NoResultFound:
+        raise NotFound
+
+    try:
+        db.session.delete(db_transaction)
+        db.session.commit()
+
+        app.logger.info("Deleted transaction {}".format(old_transaction_uuid))
+
+    except IntegrityError as e:
+        app.logger.error("IntegrityError: {}".format(str(e)))
+        raise Forbidden("Unable to delete item: IntegrityError")
+
+    return {'message': "Transaction {} successfully deleted by {}".format(
+            old_transaction_uuid,
+            auth_user,
+            )
+        }
+
 
 ### Business logic for User DAOs
 
@@ -885,17 +942,15 @@ def create_user(payload):
         db.session.add(db_user)
         db.session.commit()
 
-        db_user = User.query.\
-            filter(User.username == new_user['username']).\
-            first()
+        new_user_d = db_user.as_api_dict()
 
-        app.logger.info("Created user %s" % db_user.username)
+        app.logger.info("Created user {}".format(new_user['username']))
 
     except IntegrityError as e:
-        app.logger.error("IntegrityError: %s" % str(e))
+        app.logger.error("IntegrityError: {}".format(str(e)))
         raise Forbidden("Unable to create resource: IntegrityError")
 
-    return db_user
+    return new_user_d
 
 def replace_user(auth_user, old_username, payload):
 
@@ -920,16 +975,16 @@ def replace_user(auth_user, old_username, payload):
     try:
         db.session.commit()
 
-        db_user = User.query.filter(User.username == new_user['username']).one()
+        new_user_d = db_user.as_api_dict()
 
-        app.logger.info("Replaced user %s with %s" % \
-                (old_username, db_user.username))
+        app.logger.info("Replaced user {} with {}".format(
+            old_username, new_user_d['username']))
 
     except IntegrityError as e:
-        app.logger.error("IntegrityError: %s" % str(e))
+        app.logger.error("IntegrityError: {}".format(str(e)))
         raise Forbidden("Unable to replace resource: IntegrityError")
 
-    return db_user
+    return new_user_d
 
 def patch_user(auth_user, old_username, payload):
 
@@ -957,16 +1012,16 @@ def patch_user(auth_user, old_username, payload):
     try:
         db.session.commit()
 
-        db_user = User.query.filter(User.username == new_user['username']).one()
+        new_user_d = db_user.as_api_dict()
 
-        app.logger.info("Patched user %s with %s" % \
-                (old_username, db_user.username))
+        app.logger.info("Patched user {} with {}".format(
+            old_username, new_user_d['username']))
 
     except IntegrityError as e:
-        app.logger.error("IntegrityError: %s" % str(e))
+        app.logger.error("IntegrityError: {}".format(str(e)))
         raise Forbidden("Unable to patch resource: IntegrityError")
 
-    return db_user
+    return new_user_d
 
 def delete_user(auth_user, old_username, payload):
 
@@ -979,14 +1034,17 @@ def delete_user(auth_user, old_username, payload):
         db.session.delete(db_user)
         db.session.commit()
 
-        app.logger.info("Deleted user %s" % old_username)
+        app.logger.info("Deleted user {}".format(old_username))
 
     except IntegrityError as e:
-        app.logger.error("IntegrityError: %s" % str(e))
+        app.logger.error("IntegrityError: {}".format(str(e)))
         raise Forbidden("Unable to delete resource: IntegrityError")
 
-    return {'message': "User %s successfully deleted by %s" % \
-            (old_username, auth_user)}
+    return {'message': "User {} successfully deleted by {}".format(
+            old_username,
+            auth_user,
+            )
+        }
 
 
 ### Business logic for Barcode DAOs

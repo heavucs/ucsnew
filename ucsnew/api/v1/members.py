@@ -1,4 +1,5 @@
 from flask_restplus import Api, Resource, fields
+from flask import g as flask_g
 from ...application import http_auth
 
 api = Api()

@@ -1,4 +1,5 @@
 from flask_restplus import Api, Resource, fields
+from flask import g as flask_g
 from ...application import http_auth
 
 api = Api()
@@ -23,7 +24,7 @@ item_parser.add_argument('page', type=int, location='args',
 item_parser.add_argument('per_page', type=int, location='args',
         required=False, help='Results per page')
 
-@ns.route('', methods=['GET','POST'])
+@ns.route('/', methods=['GET','POST'])
 class Item(Resource):
     @http_auth.login_required
     @ns.doc('list_items')
