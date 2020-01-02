@@ -1,6 +1,6 @@
 from flask_restplus import Api, Resource, fields
 from flask import g as flask_g
-from ...application import http_auth
+from ... import http_auth
 
 api = Api()
 ns = api.namespace('users', description="Users of this application")
@@ -27,7 +27,7 @@ user_parser.add_argument('page', type=int, location='args',
 user_parser.add_argument('per_page', type=int, location='args',
         required=False, help='Results per page')
 
-@ns.route('/', methods=['GET','POST'])
+@ns.route('users/', methods=['GET','POST'])
 class User(Resource):
 
     @http_auth.login_required
@@ -60,7 +60,7 @@ class User(Resource):
 
         return create_user(api.payload), 201
 
-@ns.route('/<string:username>', endpoint='user')
+@ns.route('users/<string:username>/', endpoint='user')
 @ns.param('username', description="Resource ID")
 class UserResourceView(Resource):
 

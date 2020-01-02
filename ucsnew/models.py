@@ -1,18 +1,17 @@
+from flask import current_app
 from flask_sqlalchemy import SQLAlchemy
 from decimal import Decimal, ROUND_HALF_UP
 import datetime
 import uuid
 
-from .application import app
-
-
-db = SQLAlchemy(app)
+db = SQLAlchemy()
+app = current_app
 
 transaction_item = db.Table('transaction_item', db.Model.metadata,
             db.Column('transaction_uuid', db.String(36),
                 db.ForeignKey('transactions.uuid')),
-            db.Column('item_itemnumber', db.String(255),
-                db.ForeignKey('items.itemnumber')),
+            db.Column('item_uuid', db.String(255),
+                db.ForeignKey('items.uuid')),
             mysql_engine='InnoDB',
             mysql_charset='utf8mb4',
         )
@@ -46,7 +45,7 @@ class Member(db.Model, DictableBase):
     question = db.Column(db.String(255))
     answer = db.Column(db.String(255))
     activationcode = db.Column(db.String(255))
-    activated = db.Column(db.Date)
+    activated = db.Column(db.Date, nullable=True)
     admin = db.Column(db.String(1), default='0')
     browser = db.Column(db.String(255))
     notification = db.Column(db.String(1))
@@ -56,7 +55,7 @@ class Member(db.Model, DictableBase):
             answer, activationcode, admin):
 
         self.membernumber = str(membernumber)
-        self.established = str(established)
+        self.established = established
         self.firstname = str(firstname)
         self.lastname = str(lastname)
         self.address = str(address)
@@ -85,7 +84,8 @@ class Item(db.Model, DictableBase):
     __tablename__ = 'items'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
-    itemnumber = db.Column(db.String(255), primary_key=True)
+    uuid = db.Column(db.String(36), primary_key=True, default=uuid.uuid4)
+    itemnumber = db.Column(db.String(255))
     description = db.Column(db.String(255))
     category = db.Column(db.String(255))
     subject = db.Column(db.String(255))
@@ -107,10 +107,11 @@ class Item(db.Model, DictableBase):
                             db.ForeignKey('members.membernumber'))
     membernumber = db.relationship("Member", backref='items')
 
-    def __init__(self, itemnumber, membernumber, description, category, subject,
-            publisher, year, isbn, condition, conditiondetail, numitems,
-            price, discountprice, donate):
+    def __init__(self, uuid, itemnumber, membernumber, description, category,
+            subject, publisher, year, isbn, condition, conditiondetail,
+            numitems, price, discountprice, donate):
 
+        self.uuid = str(uuid)
         self.itemnumber = str(itemnumber)
         self.member_membernumber = str(membernumber)
         self.description = str(description)
@@ -136,7 +137,7 @@ class Item(db.Model, DictableBase):
         return resource_d
 
     def __repr__(self):
-        return "<Item {}>".format(self.itemnumber)
+        return "<Item {}>".format(self.uuid)
 
 class User(db.Model, DictableBase):
     __tablename__ = 'users'

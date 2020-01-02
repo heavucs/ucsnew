@@ -1,6 +1,6 @@
 from flask_restplus import Api, Resource, fields
 from flask import g as flask_g
-from ...application import http_auth
+from ... import http_auth
 
 api = Api()
 ns = api.namespace('items', description="Items for sale")
@@ -24,7 +24,7 @@ item_parser.add_argument('page', type=int, location='args',
 item_parser.add_argument('per_page', type=int, location='args',
         required=False, help='Results per page')
 
-@ns.route('/', methods=['GET','POST'])
+@ns.route('items/', methods=['GET'])
 class Item(Resource):
     @http_auth.login_required
     @ns.doc('list_items')
@@ -47,21 +47,25 @@ class Item(Resource):
 
         return results, 200
 
+@ns.route('members/<string:membernumber>/items/', methods=['POST'])
+@ns.param('membernumber', description="Resource ID")
+class MemberItem(Resource):
+
     @http_auth.login_required
     @ns.doc('create_item')
     @ns.doc(body=item_model, validate=True)
     @ns.marshal_with(item_model, code=201)
     @ns.response(201, 'Created', model=item_model)
     @ns.response(403, 'Forbidden')
-    def post(self):
+    def post(self, membernumber):
 
         '''Create Item'''
 
-        return create_item(api.payload), 201
+        return create_item(membernumber, api.payload), 201
 
-@ns.route('/<string:itemnumber>', endpoint='item')
+@ns.route('items/<string:itemnumber>/', endpoint='item')
 @ns.param('itemnumber', description="Resource ID")
-class MemberResourceView(Resource):
+class ItemResourceView(Resource):
 
     @http_auth.login_required
     @ns.doc('replace_item')

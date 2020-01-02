@@ -1,6 +1,6 @@
 from flask_restplus import Api, Resource, fields
 from flask import g as flask_g
-from ...application import http_auth
+from ... import http_auth
 
 api = Api()
 ns = api.namespace('members', description="Members who are selling items")
@@ -27,7 +27,7 @@ member_parser.add_argument('page', type=int, location='args',
 member_parser.add_argument('per_page', type=int, location='args',
         required=False, help='Results per page')
 
-@ns.route('/', methods=['GET','POST'])
+@ns.route('members/', methods=['GET','POST'])
 class Member(Resource):
     @http_auth.login_required
     @ns.doc('list_members')
@@ -62,7 +62,7 @@ class Member(Resource):
 
         return create_member(api.payload), 201
 
-@ns.route('/<string:membernumber>', endpoint='member')
+@ns.route('members/<string:membernumber>/', endpoint='member')
 @ns.param('membernumber', description="Resource ID")
 class MemberResourceView(Resource):
 

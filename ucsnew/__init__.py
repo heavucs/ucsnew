@@ -1,14 +1,18 @@
-import os, sys, logging
-from flask import Flask, render_template, request, Response
-from flask_restplus import Api, Resource
-from flask_sqlalchemy import SQLAlchemy
-from flask_httpauth import HTTPBasicAuth
-from werkzeug.security import check_password_hash, generate_password_hash
+import os
+import sys
+import logging
 
-from werkzeug.exceptions import BadRequest      # 400
-from werkzeug.exceptions import Unauthorized    # 401
-from werkzeug.exceptions import Forbidden       # 403
-from werkzeug.exceptions import NotFound        # 404
+from flask import Flask
+from flask import g as flask_g
+from flask import current_app
+from flask import Blueprint
+from flask_httpauth import HTTPBasicAuth
+
+from werkzeug.security import check_password_hash
+from werkzeug.security import generate_password_hash
+
+
+# Main Application Factory Functions
 
 class BasicConfig(object):
     SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
@@ -28,17 +32,47 @@ class BasicConfig(object):
     LOGGING = True
     LOGGING_LEVEL = logging.INFO
 
+
+def create_app(configfile=[]):
+    app = Flask(__name__)
+    app = load_configuration(app, configfile=configfile)
+    app = configure_logging(app)
+
+    from .models import db
+
+    with app.app_context():
+        db.init_app(app)
+        db.create_all()
+
+    if 'SECRET_KEY_FILE' in app.config: 
+        try:
+            f = open(app.config['SECRET_KEY_FILE'], 'rb')
+            app.secret_key = f.read()
+            f.close()
+        except IOError as e:
+            print("Unable to read secret key file: %s" % app.config['SECRET_KEY_FILE'])
+            sys.exit(1)
+    else:
+        app.logger.warning("SECRET_KEY_FILE setting not found. Using a random secret...")
+        app.secret_key = os.urandom(32)
+
+    from .api.v1 import blueprint as api_v1
+    app.register_blueprint(api_v1)
+    
+    return app
+
 def load_configuration(app, configfile=[]):
-    if configfile:
+    if isinstance(configfile, str):
         os.environ.get(configfile)
         app.config.from_pyfile(configfile)
-        print("Configuration file loaded")
+        print("Configuration file {} loaded".format(configfile))
     elif os.environ.get('APP_CONF_FILE', None):
         configfile = os.environ.get('APP_CONF_FILE', None)
         app.config.from_pyfile(configfile)
-        print("Configuration file loaded")
+        print("Configuration file {} loaded".format(configfile))
     else:
         app.config.from_object(BasicConfig)
+        print("Basic configuration loaded")
 
     return app
 
@@ -58,35 +92,13 @@ def configure_logging(app):
         #app.logger.error('error message')
         #app.logger.critical('critical message')
 
-def create_app(app, configfile=[]):
-    from .models import db
-
-    load_configuration(app, configfile=configfile)
-    configure_logging(app)
-    db.init_app(app)
-    db.create_all()
-
-    if 'SECRET_KEY_FILE' in app.config: 
-        try:
-            f = open(app.config['SECRET_KEY_FILE'], 'rb')
-            app.secret_key = f.read()
-            f.close()
-        except IOError as e:
-            print("Unable to read secret key file: %s" % app.config['SECRET_KEY_FILE'])
-            sys.exit(1)
-    else:
-        app.logger.warning("SECRET_KEY_FILE setting not found. Using a random secret...")
-        app.secret_key = os.urandom(32)
-
     return app
 
-from flask import g as flask_g
-app = Flask(__name__)
-load_configuration(app)
+
+# Utility Functions
+
+app = current_app
 http_auth = HTTPBasicAuth()
-app = create_app(app)
-from .api.v1 import api
-api.init_app(app)
 
 @http_auth.verify_password
 def verify_password(username, password):
@@ -144,8 +156,3 @@ def authorized_roles(roles=[]):
         if role in flask_g.roles:
             return f(*args, **kwargs)
         raise Forbidden()
-
-
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0:5000')
-

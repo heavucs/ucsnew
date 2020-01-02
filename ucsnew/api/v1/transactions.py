@@ -1,6 +1,6 @@
 from flask_restplus import Api, Resource, fields
 from flask import g as flask_g
-from ...application import http_auth
+from ... import http_auth
 
 api = Api()
 ns = api.namespace('transactions', description="Sales transactions")
@@ -27,7 +27,7 @@ transaction_parser.add_argument('page', type=int, location='args',
 transaction_parser.add_argument('per_page', type=int, location='args',
         required=False, help='Results per page')
 
-@ns.route('/', methods=['GET','POST'])
+@ns.route('transactions/', methods=['GET','POST'])
 class Transaction(Resource):
     @http_auth.login_required
     @ns.doc('list_transactions')
@@ -62,7 +62,7 @@ class Transaction(Resource):
 
         return create_transaction(flask_g.username, api.payload), 201
 
-@ns.route('/<string:uuid>', endpoint='transaction')
+@ns.route('transactions/<string:uuid>/', endpoint='transaction')
 @ns.param('uuid', description="Resource ID")
 class TransactionResourceView(Resource):
 

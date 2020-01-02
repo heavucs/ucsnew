@@ -1,13 +1,13 @@
 from flask_restplus import Api, Resource, fields
 from flask import send_file
-from ...application import http_auth
+from ... import http_auth
 
 api = Api()
 ns = api.namespace('barcodes', description="Generates barcodes")
 
 from ...logic import generate_barcode
 
-@ns.route('/<string:codedata>', endpoint='codedata')
+@ns.route('barcodes/<string:codedata>/', endpoint='codedata')
 @ns.param('codedata', description="Data to be encoded")
 class Barcode(Resource):
 

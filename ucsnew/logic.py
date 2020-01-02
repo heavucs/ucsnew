@@ -5,7 +5,7 @@ from io import BytesIO
 import MySQLdb as sql
 from decimal import Decimal, ROUND_HALF_UP
 
-#from collections import deque
+from flask import current_app
 
 from .models import db
 from .models import Member
@@ -21,7 +21,7 @@ from werkzeug.exceptions import Forbidden       # 403
 from werkzeug.exceptions import NotFound        # 404
 from werkzeug.security import generate_password_hash
 
-from .application import app
+app = current_app
 
 
 ### Business logic for Member DAOs
@@ -349,10 +349,10 @@ def get_items(q_itemnumber=None, q_membernumber=None, q_description=None,
 
     db_item = (
                 db.session.query(Item)
-                .order_by(Item.itemnumber.asc())
+                .order_by(Item.uuid.asc())
             )
     if q_itemnumber:
-        db_item = db_item.filter(Item.itemnumber.like("{}%%"
+        db_item = db_item.filter(Item.uuid.like("{}%%"
                 .format(q_itemnumber)))
     if q_membernumber:
         db_item = db_item.filter(Item.member_membernumber.like("{}%%"
@@ -399,7 +399,7 @@ def get_items(q_itemnumber=None, q_membernumber=None, q_description=None,
                 CheckedOut, Status, Deleted, MemberNumber
                 FROM Item {} {} {} ORDER BY ID limit {},{}"""
                     .format(
-                        "WHERE ItemNumber like \"{}%%\""
+                        "WHERE ID like \"{}%%\""
                             .format(nullstring(q_itemnumber)),
                         "AND Description like \"%%{}%%\""
                             .format(nullstring(q_description)),
@@ -414,7 +414,7 @@ def get_items(q_itemnumber=None, q_membernumber=None, q_description=None,
         for i in legacy_items_l:
 
             item = {
-                'itemnumber': i[0],
+                'uuid': i[0],
                 'description': i[2],
                 'category': i[3],
                 'subject': i[4],
@@ -437,9 +437,14 @@ def get_items(q_itemnumber=None, q_membernumber=None, q_description=None,
 
     return items_l
 
-def create_item(payload):
+def create_item(membernumber, payload):
 
-    itemnumber = (int(Item.query.count()) + 1)
+    db_item = (
+                db.session.query(Item)
+                .filter_by(member_membernumber=membernumber)
+                .order_by(Item.uuid.asc())
+            )
+    itemnumber = (int(db_item.count()) + 1)
 
     new_item_d = {
             'itemnumber': str(itemnumber),
