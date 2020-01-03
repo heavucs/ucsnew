@@ -5,25 +5,34 @@ RE_ZIP = r'^[0-9]{5}$'
 
 # Item Models
 item_model = {
-        'itemnumber': fields.String(
+        'uuid': fields.String(
             readonly=True,
+            required=False,
+            description='UUID'
+            ),
+        'itemnumber': fields.String(
+            readonly=False,
             required=False,
             description='ItemNumber within Account'
             ),
         'membernumber': fields.String(
-            required=True,
+            required=False,
+            description='Account Number'
+            ),
+        'member_membernumber': fields.String(
+            required=False,
             description='Account Number'
             ),
         'description': fields.String(
-            required=True,
+            required=False,
             description='Description of the item'
             ),
         'category': fields.String(
-            required=True,
+            required=False,
             description='Item\'s Category'
             ),
         'subject': fields.String(
-            required=True,
+            required=False,
             description='School subject'
             ),
         'publisher': fields.String(
@@ -50,23 +59,23 @@ item_model = {
             description='Additional comments on condition'
             ),
         'numitems': fields.Integer(
-            required=True,
+            required=False,
             description='Number of items included in "Item" e.g. a set of books',
             example=1,
             min=1
             ),
         'price': fields.String(
-            required=True,
+            required=False,
             description='Friday price',
             example="1.00"
             ),
         'discountprice': fields.String(
-            required=True,
+            required=False,
             description='Saturday price',
             example="1.00"
             ),
         'donate': fields.Integer(
-            required=True,
+            required=False,
             description='0:False,1:True',
             min=0,
             max=1,
@@ -81,7 +90,7 @@ item_model = {
             description='The presense of a datetime indicates sold'
             ),
         'status': fields.Integer(
-            required=True,
+            required=False,
             description='0:Pending,1:CheckedIn,2:Sold,3:PickedUp,4:Deleted',
             example=0,
             min=0,
@@ -200,9 +209,14 @@ transaction_model = {
             required=False,
             description="Unique Identifier"
             ),
-        'datetime': fields.String(
+        'ctime': fields.String(
             required=False,
             description="Date/Time transaction was created"
+            ),
+        'ftime': fields.String(
+            readonly=True,
+            required=False,
+            description="Date/Time transaction was finalized"
             ),
         'user_username': fields.String(
             required=False,

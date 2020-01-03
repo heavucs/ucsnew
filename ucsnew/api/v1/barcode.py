@@ -7,7 +7,7 @@ ns = api.namespace('barcodes', description="Generates barcodes")
 
 from ...logic import generate_barcode
 
-@ns.route('barcodes/<string:codedata>/', endpoint='codedata')
+@ns.route('/<string:codedata>', endpoint='codedata')
 @ns.param('codedata', description="Data to be encoded")
 class Barcode(Resource):
 

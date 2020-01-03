@@ -1,5 +1,6 @@
 import datetime
 import re
+import uuid
 import barcode
 from io import BytesIO
 import MySQLdb as sql
@@ -11,6 +12,7 @@ from .models import db
 from .models import Member
 from .models import Item
 from .models import Transaction
+from .models import Transaction_item
 from .models import User
 
 from sqlalchemy.exc import IntegrityError
@@ -341,8 +343,8 @@ def delete_member(auth_user, old_membernumber, payload):
 
 ### Business logic for Item DAOs
 
-def get_items(q_itemnumber=None, q_membernumber=None, q_description=None,
-        page=1, per_page=25):
+def get_items(q_item_uuid=None, q_membernumber=None, q_description=None,
+        q_transaction_uuid=None, page=1, per_page=25):
 
     page = page if page else 1
     per_page = per_page if per_page else 25
@@ -351,15 +353,19 @@ def get_items(q_itemnumber=None, q_membernumber=None, q_description=None,
                 db.session.query(Item)
                 .order_by(Item.uuid.asc())
             )
-    if q_itemnumber:
+    if q_item_uuid:
         db_item = db_item.filter(Item.uuid.like("{}%%"
-                .format(q_itemnumber)))
+                .format(q_item_uuid)))
     if q_membernumber:
         db_item = db_item.filter(Item.member_membernumber.like("{}%%"
                 .format(q_membernumber)))
     if q_description:
         db_item = db_item.filter(Item.description.like("%%{}%%"
                 .format(q_description)))
+    if q_transaction_uuid:
+        db_item = db_item.join(Transaction_item)
+        db_item = db_item.join(Transaction)
+        db_item = db_item.filter(Transaction.uuid == q_transaction_uuid)
 
     pagination = db_item.paginate(page=page, per_page=per_page,
         error_out=False)
@@ -400,7 +406,7 @@ def get_items(q_itemnumber=None, q_membernumber=None, q_description=None,
                 FROM Item {} {} {} ORDER BY ID limit {},{}"""
                     .format(
                         "WHERE ID like \"{}%%\""
-                            .format(nullstring(q_itemnumber)),
+                            .format(nullstring(q_item_uuid)),
                         "AND Description like \"%%{}%%\""
                             .format(nullstring(q_description)),
                         "AND MemberNumber like \"{}%%\""
@@ -437,16 +443,17 @@ def get_items(q_itemnumber=None, q_membernumber=None, q_description=None,
 
     return items_l
 
-def create_item(membernumber, payload):
+def create_item(auth_user, payload):
 
     db_item = (
                 db.session.query(Item)
-                .filter_by(member_membernumber=membernumber)
+                .filter_by(member_membernumber=payload['membernumber'])
                 .order_by(Item.uuid.asc())
             )
     itemnumber = (int(db_item.count()) + 1)
 
     new_item_d = {
+            'uuid': str(uuid.uuid4()),
             'itemnumber': str(itemnumber),
             'membernumber': str(payload['membernumber']),
             'description': str(payload['description']),
@@ -466,6 +473,7 @@ def create_item(membernumber, payload):
             }
 
     db_item = Item(
+            new_item_d['uuid'],
             new_item_d['itemnumber'],
             new_item_d['membernumber'],
             new_item_d['description'],
@@ -490,8 +498,8 @@ def create_item(membernumber, payload):
 
         app.logger.info("Created item {}: {}"
                 .format(
-                    new_item_d['ID'],
-                    new_item_d['Description'],
+                    new_item_d['uuid'],
+                    new_item_d['description'],
                     )
                 )
 
@@ -501,12 +509,12 @@ def create_item(membernumber, payload):
 
     return new_item_d
 
-def replace_item(auth_user, old_itemnumber, payload):
+def replace_item(auth_user, old_uuid, payload):
 
     try:
         db_item = (
                     Item.query
-                    .filter(Item.itemnumber == old_itemnumber)
+                    .filter(Item.uuid == old_uuid)
                     .one()
                 )
     except NoResultFound:
@@ -514,7 +522,7 @@ def replace_item(auth_user, old_itemnumber, payload):
 
     new_item_d = {
             'itemnumber': str(db_item.itemnumber),
-            'membernumber': str(payload['membernumber']),
+            'membernumber': db_item.membernumber, # Wont Change
             'description': str(payload['description']),
             'category': str(payload['category']),
             'subject': str(payload['subject']),
@@ -532,7 +540,7 @@ def replace_item(auth_user, old_itemnumber, payload):
             }
 
     db_item.itemnumber = new_item_d['itemnumber'],
-    db_item.membernumber = new_item_d['membernumber'],
+    #db_item.membernumber = new_item_d['membernumber'],
     db_item.description = new_item_d['description'],
     db_item.category = new_item_d['category'],
     db_item.subject = new_item_d['subject'],
@@ -564,21 +572,20 @@ def replace_item(auth_user, old_itemnumber, payload):
 
     return new_item_d
 
-def patch_item(auth_user, old_itemnumber, payload):
+def patch_item(auth_user, old_uuid, payload):
 
     try:
         db_item = (
                     Item.query
-                    .filter(Item.itemnumber == old_itemnumber)
+                    .filter(Item.uuid == old_uuid)
                     .one()
                 )
     except NoResultFound:
-        raise NotFound
+        raise NotFound("This is a not found error ")
 
     new_item_d = {
             'itemnumber': str(db_item.itemnumber),
-            'membernumber': str(payload.get('membernumber',
-                db_item.membernumber)),
+            'membernumber': db_item.membernumber, # Wont Change
             'description': str(payload.get('description',
                 db_item.description)),
             'category': str(payload.get('category',
@@ -598,21 +605,17 @@ def patch_item(auth_user, old_itemnumber, payload):
             'numitems': str(payload.get('numitems',
                 db_item.numitems)),
             'price': Decimal(
-                str(payload.get('price', db_item.price)) \
-                    .quantize(Decimal(".01")),
-                ROUND_HALF_UP
-                ),
+                str(payload.get('price', db_item.price))
+                ).quantize(Decimal(".01"), ROUND_HALF_UP),
             'discountprice': Decimal(
-                str(payload.get('discountprice', db_item.discountprice)) \
-                    .quantize(Decimal(".01")),
-                ROUND_HALF_UP
-                ),
+                str(payload.get('discountprice', db_item.discountprice))
+                ).quantize(Decimal(".01"), ROUND_HALF_UP),
             'donate': str(payload.get('donate',
                 db_item.donate)),
             }
 
     db_item.itemnumber = new_item_d['itemnumber'],
-    db_item.membernumber = new_item_d['membernumber'],
+    #db_item.membernumber = new_item_d['membernumber'],
     db_item.description = new_item_d['description'],
     db_item.category = new_item_d['category'],
     db_item.subject = new_item_d['subject'],
@@ -633,8 +636,8 @@ def patch_item(auth_user, old_itemnumber, payload):
 
         app.logger.info("Patched item {}: {}"
                 .format(
-                    new_item_d['ID'],
-                    new_item_d['Description'],
+                    new_item_d['uuid'],
+                    new_item_d['description'],
                     )
                 )
 
@@ -673,8 +676,8 @@ def delete_item(auth_user, old_itemnumber, payload):
 
 ### Business logic for Transaction DAOs
 
-def get_transactions(q_username=None, q_itemnumber=None, q_transactionnumber=None,
-        page=1, per_page=25):
+def get_transactions(q_username=None, q_itemnumber=None, q_transaction_uuid=None,
+        q_finalized=None, page=1, per_page=25):
 
     page = page if page else 1
     per_page = per_page if per_page else 25
@@ -689,9 +692,16 @@ def get_transactions(q_username=None, q_itemnumber=None, q_transactionnumber=Non
     if q_itemnumber:
         db_transaction = db_transaction.filter(Transaction.items.like("%%{}%%"
                 .format(q_itemnumber)))
-    if q_transactionnumber:
+    if q_transaction_uuid:
         db_transaction = db_transaction.filter(Transaction.uuid.like("%%{}%%"
-                .format(q_transactionnumber)))
+                .format(q_transaction_uuid)))
+    if q_finalized:
+        if isinstance(q_finalized, str):
+            if finalized == 'True' or finalized == '1':
+                finalized = True
+            else:
+                finalized = False
+        db_transaction = db_transaction.filter(Transaction.finalized == finalized)
 
     pagination = db_transaction.paginate(page=page, per_page=per_page,
         error_out=False)
@@ -727,7 +737,7 @@ def get_transactions(q_username=None, q_itemnumber=None, q_transactionnumber=Non
                             "WHERE Checker like \"{}%%\""
                                 .format(nullstring(q_username)),
                             "AND ID like \"{}%%\""
-                                .format(nullstring(q_transactionnumber)),
+                                .format(nullstring(q_transaction_uuid)),
                             (page * per_page - per_page),
                             per_page,
                             )
@@ -738,7 +748,7 @@ def get_transactions(q_username=None, q_itemnumber=None, q_transactionnumber=Non
 
             transaction = {
                 'uuid': str(i[0]),
-                'datetime': str(i[1]),
+                'ctime': str(i[1]),
                 'user_username': i[2],
                 'finalized': i[3],
                 'payment_method': i[4],
@@ -750,19 +760,27 @@ def get_transactions(q_username=None, q_itemnumber=None, q_transactionnumber=Non
 
 def create_transaction(auth_user, payload):
 
+    previous = get_transactions(q_username=auth_user, q_finalized=False)
+    if len(previous) > 0:
+        previous = previous[0]
+        raise Forbidden("Transaction {} already open by {}".format(
+            previous.uuid, auth_user))
+
     new_transaction_d = {
-            datetime: datetime.date.now(),
-            user: auth_user,
-            finalized: False,
-            payment_method: "0",
-            total: Decimal(0)
+            'user': auth_user,
+            'finalized': False,
+            'ftime': None,
+            'payment_method': "0",
+            'payment_note': "",
+            'total': Decimal(0),
             }
 
     db_transaction = Transaction(
-            new_transaction_d['datetime'],
             new_transaction_d['user'],
             new_transaction_d['finalized'],
+            new_transaction_d['ftime'],
             new_transaction_d['payment_method'],
+            new_transaction_d['payment_note'],
             new_transaction_d['total'],
             )
 
@@ -770,10 +788,10 @@ def create_transaction(auth_user, payload):
         db.session.add(db_transaction)
         db.session.commit()
 
-        new_transaction_d = new_transaction.as_api_dict()
+        new_transaction_d = db_transaction.as_api_dict()
         app.logger.info("Created transaction {}"
                 .format(
-                    new_transaction.uuid,
+                    db_transaction.uuid,
                     )
                 )
 
@@ -781,7 +799,7 @@ def create_transaction(auth_user, payload):
         app.logger.error("IntegrityError: {}".format(e))
         raise Forbidden("Unable to create transaction: IntegrityError")
 
-    return new_transaction.as_api_dict()
+    return db_transaction.as_api_dict()
 
 def replace_transaction(auth_user, old_transaction_uuid, payload):
 
@@ -794,19 +812,33 @@ def replace_transaction(auth_user, old_transaction_uuid, payload):
     except NoResultFound:
         raise NotFound
 
+    finalized = payload['finalized']
+    if isinstance(finalized, str):
+        if finalized == 'True' or finalized == '1':
+            finalized = True
+        else:
+            finalized = False
+
+    if (db_transaction.finalized == True
+            and finalized == True):
+        raise Forbidden("Transaction {} is already finalized".format(
+            old_transaction_uuid))
+
+    if (db_transaction.finzalized == False
+            and finalized == True):
+        db_transaction.ftime = datetime.datetime.now()
+
     new_transaction_d = {
-            'uuid': db_transaction.uuid,
-            'datetime': db_transaction.datetime,
-            'finalized': str(payload['finalized']),
+            'finalized': finalized,
+            'ftime': db_transaction.ftime,
             'payment_method': str(payload['payment_method']),
             'total': str(payload['total']),
             }
 
-    db_transaction.uuid = new_transaction_d['uuid'],
-    db_transaction.datetime = new_transaction_d['datetime'],
-    db_transaction.finalized = new_transaction_d['finalized'],
-    db_transaction.payment_method = new_transaction_d['payment_method'],
-    db_transaction.total = new_transaction_d['total'],
+    db_transaction.finalized = new_transaction_d['finalized']
+    db_transaction.ftime = new_transaction_d['ftime']
+    db_transaction.payment_method = new_transaction_d['payment_method']
+    db_transaction.total = new_transaction_d['total']
 
     try:
         db.session.commit()
@@ -836,22 +868,35 @@ def patch_transaction(auth_user, old_transaction_uuid, payload):
     except NoResultFound:
         raise NotFound
 
+    finalized = payload.get('finalized', db_transaction.finalized)
+    if isinstance(finalized, str):
+        if finalized == 'True' or finalized == '1':
+            finalized = True
+        else:
+            finalized = False
+
+    if (db_transaction.finalized == True
+            and finalized == True):
+        raise Forbidden("Transaction {} is already finalized".format(
+            old_transaction_uuid))
+
+    if (db_transaction.finalized == False
+            and finalized == True):
+        db_transaction.ftime = datetime.datetime.now()
+
     new_transaction_d = {
-            'uuid': db_transaction.uuid,
-            'datetime': db_transaction.datetime,
-            'finalized': str(payload.get('finalized',
-                db_transaction.finalized)),
+            'finalized': finalized,
+            'ftime': db_transaction.ftime,
             'payment_method': str(payload.get('payment_method',
                 db_transaction.payment_method)),
             'total': str(payload.get('total',
                 db_transaction.total)),
             }
 
-    db_transaction.uuid = new_transaction_d['uuid'],
-    db_transaction.datetime = new_transaction_d['datetime'],
-    db_transaction.finalized = new_transaction_d['finalized'],
-    db_transaction.payment_method = new_transaction_d['payment_method'],
-    db_transaction.total = new_transaction_d['total'],
+    db_transaction.finalized = new_transaction_d['finalized']
+    db_transaction.ftime = new_transaction_d['ftime']
+    db_transaction.payment_method = new_transaction_d['payment_method']
+    db_transaction.total = new_transaction_d['total']
 
     try:
         db.session.commit()
@@ -860,7 +905,7 @@ def patch_transaction(auth_user, old_transaction_uuid, payload):
 
         app.logger.info("Patched transaction {}"
                 .format(
-                    new_item_d['uuid'],
+                    new_transaction_d['uuid'],
                     )
                 )
 
@@ -881,6 +926,15 @@ def delete_transaction(auth_user, old_transaction_uuid, payload):
     except NoResultFound:
         raise NotFound
 
+    if db_transaction.finalized == True:
+        raise Forbidden("Transaction {} is already finalized".format(
+            old_transaction_uuid))
+
+    num_items = len(listfrom_transaction(old_transaction_uuid))
+    if num_items > 0:
+        raise Forbidden("Unable to delete transaction {} with items {}".format(
+            old_transaction_uuid, num_items))
+
     try:
         db.session.delete(db_transaction)
         db.session.commit()
@@ -896,6 +950,101 @@ def delete_transaction(auth_user, old_transaction_uuid, payload):
             auth_user,
             )
         }
+
+def listfrom_transaction(old_transaction_uuid):
+
+    try:
+        db_transaction = (
+                    Transaction.query
+                    .filter(Transaction.uuid == old_transaction_uuid)
+                    .one()
+                )
+    except NoResultFound:
+        raise NotFound
+
+    return get_items(q_transaction_uuid=old_transaction_uuid)
+
+def addto_transaction(auth_user, old_transaction_uuid, old_item_uuid):
+
+    try:
+        db_transaction = (
+                    Transaction.query
+                    .filter(Transaction.uuid == old_transaction_uuid)
+                    .one()
+                )
+    except NoResultFound:
+        raise NotFound
+
+    if db_transaction.finalized == True:
+        raise Forbidden("Transaction {} is already finalized".format(
+            old_transaction_uuid))
+
+    try:
+        db_item = (
+                    Item.query
+                    .filter(Item.uuid == old_item_uuid)
+                    .one()
+                )
+    except NoResultFound:
+        raise NotFound
+
+    if db_transaction.finalized:
+        raise Forbidden("Transaction {} is finalized".format(
+            old_transaction_uuid))
+
+    try:
+        db_transaction.items.append(db_item)
+        db.session.commit()
+
+        app.logger.info("Added item {} to transaction {}".format(
+            old_item_uuid, old_transaction_uuid))
+
+    except IntegrityError as e:
+        app.logger.error("IntegrityError: {}".format(str(e)))
+        raise Forbidden("Unable to add item to transaction: IntegrityError")
+
+    return get_items(q_transaction_uuid=old_transaction_uuid)
+
+def removefrom_transaction(auth_user, old_transaction_uuid, old_item_uuid):
+
+    try:
+        db_transaction = (
+                    Transaction.query
+                    .filter(Transaction.uuid == old_transaction_uuid)
+                    .one()
+                )
+    except NoResultFound:
+        raise NotFound
+
+    if db_transaction.finalized == True:
+        raise Forbidden("Transaction {} is already finalized".format(
+            old_transaction_uuid))
+
+    try:
+        db_item = (
+                    Item.query
+                    .filter(Item.uuid == old_item_uuid)
+                    .one()
+                )
+    except NoResultFound:
+        raise NotFound
+
+    if db_transaction.finalized:
+        raise Forbidden("Transaction {} is finalized".format(
+            old_transaction_uuid))
+
+    try:
+        db_transaction.items.remove(db_item)
+        db.session.commit()
+
+        app.logger.info("Removed item {} from transaction {}".format(
+            old_item_uuid, old_transaction_uuid))
+
+    except IntegrityError as e:
+        app.logger.error("IntegrityError: {}".format(str(e)))
+        raise Forbidden("Unable to remove item from transaction: IntegrityError")
+
+    return get_items(q_transaction_uuid=old_transaction_uuid)
 
 
 ### Business logic for User DAOs

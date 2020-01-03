@@ -27,7 +27,7 @@ user_parser.add_argument('page', type=int, location='args',
 user_parser.add_argument('per_page', type=int, location='args',
         required=False, help='Results per page')
 
-@ns.route('users/', methods=['GET','POST'])
+@ns.route('', methods=['GET','POST'])
 class User(Resource):
 
     @http_auth.login_required
@@ -60,7 +60,7 @@ class User(Resource):
 
         return create_user(api.payload), 201
 
-@ns.route('users/<string:username>/', endpoint='user')
+@ns.route('/<string:username>', endpoint='user')
 @ns.param('username', description="Resource ID")
 class UserResourceView(Resource):
 

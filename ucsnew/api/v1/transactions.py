@@ -20,30 +20,30 @@ transaction_parser.add_argument('username', type=str, location='args',
         required=False, help='Query User Transactions')
 transaction_parser.add_argument('itemnumber', type=str, location='args',
         required=False, help='Query Transactions by itemnumber')
-transaction_parser.add_argument('transactionnumber', type=str, location='args',
-        required=False, help='Query Transaction Number')
+transaction_parser.add_argument('transaction_uuid', type=str, location='args',
+        required=False, help='Query Transaction UUID')
 transaction_parser.add_argument('page', type=int, location='args',
         required=False, help='Page number')
 transaction_parser.add_argument('per_page', type=int, location='args',
         required=False, help='Results per page')
 
-@ns.route('transactions/', methods=['GET','POST'])
+@ns.route('', methods=['GET','POST'])
 class Transaction(Resource):
     @http_auth.login_required
     @ns.doc('list_transactions')
     @ns.doc(parser=transaction_parser, validate=True)
     @ns.marshal_with(transaction_model, as_list=True)
     @ns.response(200, 'OK', model=transaction_model)
-    def get(self, username=None, itemnumber=None, transactionnumber=None,
+    def get(self, username=None, itemnumber=None, transaction_uuid=None,
             page=1, per_page=25):
 
         '''List Transactions'''
 
         args = transaction_parser.parse_args()
-        results = get_transactions_list(
+        results = get_transactions(
             args['username'],
             args['itemnumber'],
-            args['transactionnumber'],
+            args['transaction_uuid'],
             args['page'],
             args['per_page'],
         )
@@ -62,8 +62,8 @@ class Transaction(Resource):
 
         return create_transaction(flask_g.username, api.payload), 201
 
-@ns.route('transactions/<string:uuid>/', endpoint='transaction')
-@ns.param('uuid', description="Resource ID")
+@ns.route('/<string:transaction_uuid>', endpoint='transaction')
+@ns.param('transaction_uuid', description="Resource ID")
 class TransactionResourceView(Resource):
 
     @http_auth.login_required
@@ -73,11 +73,12 @@ class TransactionResourceView(Resource):
     @ns.response(200, 'OK', model=transaction_model)
     @ns.response(403, 'Forbidden')
     @ns.response(404, 'Not Found')
-    def put(self, uuid):
+    def put(self, transaction_uuid):
 
         '''Replace transaction'''
 
-        return replace_transaction(flask_g.username, uuid, api.payload), 200
+        return replace_transaction(flask_g.username, transaction_uuid,
+                api.payload), 200
 
     @http_auth.login_required
     @ns.doc('patch_transaction')
@@ -86,11 +87,12 @@ class TransactionResourceView(Resource):
     @ns.response(200, 'OK', model=transaction_model)
     @ns.response(403, 'Forbidden')
     @ns.response(404, 'Not Found')
-    def patch(self, uuid):
+    def patch(self, transaction_uuid):
 
         '''Patch transaction'''
 
-        return patch_transaction(flask_g.username, uuid, api.payload), 200
+        return patch_transaction(flask_g.username, transaction_uuid,
+                api.payload), 200
 
     @http_auth.login_required
     @ns.doc('delete_transaction')
@@ -99,8 +101,68 @@ class TransactionResourceView(Resource):
     @ns.response(200, 'OK', model=delete_transaction_model)
     @ns.response(403, 'Forbidden')
     @ns.response(404, 'Not Found')
-    def delete(self, uuid):
+    def delete(self, transaction_uuid):
 
         '''Delete transaction'''
 
-        return delete_transaction(flask_g.username, uuid, api.payload), 200
+        return delete_transaction(flask_g.username, transaction_uuid, api.payload), 200
+
+
+from .api_models import delete_item_model
+from .api_models import item_model
+item_model = ns.model('Item', item_model)
+
+from ...logic import listfrom_transaction
+from ...logic import addto_transaction
+from ...logic import removefrom_transaction
+
+@ns.route('/<string:transaction_uuid>/items')
+@ns.param('transaction_uuid', description="Resource ID")
+class TransactionItems(Resource):
+
+    @http_auth.login_required
+    @ns.doc('list_items')
+    @ns.doc(body=delete_item_model, validate=True)
+    @ns.marshal_with(item_model, as_list=True, code=200)
+    @ns.response(200, 'OK', model=item_model)
+    @ns.response(404, 'Not Found')
+    def get(self, transaction_uuid):
+
+        '''List Items from transaction'''
+
+        return listfrom_transaction(transaction_uuid), 200
+
+
+@ns.route('/<string:transaction_uuid>/items/<string:item_uuid>',
+        endpoint='transaction_items')
+@ns.param('transaction_uuid', description="Resource ID")
+@ns.param('item_uuid', description="Resource ID")
+class TransactionItemsResourceView(Resource):
+
+    @http_auth.login_required
+    @ns.doc('create_item')
+    @ns.doc(body=delete_item_model, validate=True)
+    @ns.marshal_with(item_model, as_list=True, code=201)
+    @ns.response(201, 'Created', model=item_model)
+    @ns.response(403, 'Forbidden')
+    @ns.response(404, 'Not Found')
+    def post(self, transaction_uuid, item_uuid):
+
+        '''Add Item to transaction'''
+
+        return addto_transaction(flask_g.username, transaction_uuid,
+                item_uuid), 201
+
+    @http_auth.login_required
+    @ns.doc('delete_item')
+    @ns.doc(body=delete_item_model, validate=True)
+    @ns.marshal_with(item_model, as_list=True, code=200)
+    @ns.response(200, 'OK', model=item_model)
+    @ns.response(403, 'Forbidden')
+    @ns.response(404, 'Not Found')
+    def delete(self, transaction_uuid, item_uuid):
+
+        '''Remove item from transaction'''
+
+        return removefrom_transaction(flask_g.username, transaction_uuid,
+                item_uuid), 200

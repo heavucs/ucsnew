@@ -1,5 +1,6 @@
 from flask import current_app
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import backref
 from decimal import Decimal, ROUND_HALF_UP
 import datetime
 import uuid
@@ -7,10 +8,10 @@ import uuid
 db = SQLAlchemy()
 app = current_app
 
-transaction_item = db.Table('transaction_item', db.Model.metadata,
+Transaction_item = db.Table('transaction_item', db.Model.metadata,
             db.Column('transaction_uuid', db.String(36),
                 db.ForeignKey('transactions.uuid')),
-            db.Column('item_uuid', db.String(255),
+            db.Column('item_uuid', db.String(36),
                 db.ForeignKey('items.uuid')),
             mysql_engine='InnoDB',
             mysql_charset='utf8mb4',
@@ -84,7 +85,7 @@ class Item(db.Model, DictableBase):
     __tablename__ = 'items'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
-    uuid = db.Column(db.String(36), primary_key=True, default=uuid.uuid4)
+    uuid = db.Column(db.String(36), primary_key=True, default=uuid.uuid4())
     itemnumber = db.Column(db.String(255))
     description = db.Column(db.String(255))
     category = db.Column(db.String(255))
@@ -105,7 +106,8 @@ class Item(db.Model, DictableBase):
 
     member_membernumber = db.Column(db.String(255),
                             db.ForeignKey('members.membernumber'))
-    membernumber = db.relationship("Member", backref='items')
+    membernumber = db.relationship(Member,
+            backref=backref("items", cascade="all,delete"))
 
     def __init__(self, uuid, itemnumber, membernumber, description, category,
             subject, publisher, year, isbn, condition, conditiondetail,
@@ -132,7 +134,7 @@ class Item(db.Model, DictableBase):
     def as_api_dict(self):
 
         resource_d = self.as_dict()
-        resource_d['membernumber'] = self.member_membernumber
+        #resource_d['membernumber'] = self.member_membernumber
 
         return resource_d
 
@@ -219,8 +221,9 @@ class Transaction(db.Model, DictableBase):
     __tablename__ = 'transactions'
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
 
-    uuid = db.Column(db.String(36), primary_key=True, default=uuid.uuid4)
-    datetime = db.Column(db.Date, default=datetime.date.today())
+    uuid = db.Column(db.String(36), primary_key=True, default=uuid.uuid4())
+    ctime = db.Column(db.DateTime, default=datetime.datetime.now())
+    ftime = db.Column(db.DateTime, nullable=True)
     finalized = db.Column(db.Boolean, default=False) #0 False, 1 True
     payment_method = db.Column(db.String(1))
     total = db.Column(db.DECIMAL(11,4))
@@ -230,20 +233,23 @@ class Transaction(db.Model, DictableBase):
     user = db.relationship("User", backref="transactions")
 
     items = db.relationship("Item",
-                secondary=transaction_item,
+                secondary=Transaction_item,
                 backref='transactions')
 
-    def __init__(self, datetime, user, finalized, payment_method,
+    def __init__(self, user, finalized, ftime, payment_method,
             payment_note, total):
 
-        self.datetime = datetime
-        self.user = str(user)
-        self.finalized = bool(finalized)
+        self.uuid = str(uuid.uuid4())
+        self.ctime = datetime.datetime.now() #Creation time
+        self.ftime = ftime                   #Finalization time
+        self.user_username = str(user)
+        self.finalized = finalized
         self.payment_method = str(payment_method)
+        self.payment_note = str(payment_note)
         self.total = Decimal(total).quantize(Decimal('0.0001'),
                         rounding=ROUND_HALF_UP)
 
-    def as_api_dict():
+    def as_api_dict(self):
 
         resource_d = self.as_dict()
 
