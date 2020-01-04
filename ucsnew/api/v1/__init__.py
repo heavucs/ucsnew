@@ -18,3 +18,5 @@ from .users import ns as ns_users
 api.add_namespace(ns_users, path='')
 from .barcode import ns as ns_barcode
 api.add_namespace(ns_barcode, path='')
+from .auditlogs import ns as ns_auditlogs
+api.add_namespace(ns_auditlogs, path='')

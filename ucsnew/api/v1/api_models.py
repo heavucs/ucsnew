@@ -8,7 +8,7 @@ item_model = {
         'uuid': fields.String(
             readonly=True,
             required=False,
-            description='UUID'
+            description='UUID4'
             ),
         'itemnumber': fields.String(
             readonly=False,
@@ -210,6 +210,7 @@ transaction_model = {
             description="Unique Identifier"
             ),
         'ctime': fields.String(
+            readonly=True,
             required=False,
             description="Date/Time transaction was created"
             ),
@@ -249,3 +250,56 @@ user_model = {
 delete_user_model = {}
 
 # Barcode Models
+
+# Audit Log Models
+auditlog_model = {
+        'uuid': fields.String(
+            readonly=True,
+            required=False,
+            description='UUID4'
+            ),
+        'ctime': fields.String(
+            readonly=True,
+            required=False,
+            description="Date/Time log was created"
+            ),
+        'user': fields.String(
+            readonly=True,
+            required=False,
+            description='User that created the log entry'
+            ),
+        'text': fields.String(
+            required=False,
+            description='Log message text'
+            ),
+        'tags': fields.Raw(
+            required=False,
+            description='JSON of search tags, tag:tagtype'
+            ),
+        }
+
+auditlogtag_model = {
+        'uuid': fields.String(
+            readonly=True,
+            required=False,
+            description='UUID4'
+            ),
+        'ctime': fields.String(
+            readonly=True,
+            required=False,
+            description="Date/Time tag was created"
+            ),
+        'auditlog_uuid': fields.String(
+            readonly=True,
+            required=False,
+            description='User that created the log entry'
+            ),
+        'tag': fields.String(
+            required=False,
+            description='Tag data'
+            ),
+        'tagtype': fields.String(
+            required=False,
+            description='Type of data tag represents'
+            ),
+        }

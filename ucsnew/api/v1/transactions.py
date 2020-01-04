@@ -1,4 +1,6 @@
-from flask_restplus import Api, Resource, fields
+from flask_restplus import Api
+from flask_restplus import Resource
+from flask_restplus import fields
 from flask import g as flask_g
 from ... import http_auth
 
@@ -112,9 +114,9 @@ from .api_models import delete_item_model
 from .api_models import item_model
 item_model = ns.model('Item', item_model)
 
-from ...logic import listfrom_transaction
-from ...logic import addto_transaction
-from ...logic import removefrom_transaction
+from ...logic import listitemfrom_transaction
+from ...logic import additemto_transaction
+from ...logic import removeitemfrom_transaction
 
 @ns.route('/<string:transaction_uuid>/items')
 @ns.param('transaction_uuid', description="Resource ID")
@@ -128,9 +130,9 @@ class TransactionItems(Resource):
     @ns.response(404, 'Not Found')
     def get(self, transaction_uuid):
 
-        '''List Items from transaction'''
+        '''List items from transaction'''
 
-        return listfrom_transaction(transaction_uuid), 200
+        return listitemfrom_transaction(transaction_uuid), 200
 
 
 @ns.route('/<string:transaction_uuid>/items/<string:item_uuid>',
@@ -148,9 +150,9 @@ class TransactionItemsResourceView(Resource):
     @ns.response(404, 'Not Found')
     def post(self, transaction_uuid, item_uuid):
 
-        '''Add Item to transaction'''
+        '''Add item to transaction'''
 
-        return addto_transaction(flask_g.username, transaction_uuid,
+        return additemto_transaction(flask_g.username, transaction_uuid,
                 item_uuid), 201
 
     @http_auth.login_required
@@ -164,5 +166,5 @@ class TransactionItemsResourceView(Resource):
 
         '''Remove item from transaction'''
 
-        return removefrom_transaction(flask_g.username, transaction_uuid,
+        return removeitemfrom_transaction(flask_g.username, transaction_uuid,
                 item_uuid), 200

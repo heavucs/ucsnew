@@ -1,4 +1,6 @@
-from flask_restplus import Api, Resource, fields
+from flask_restplus import Api
+from flask_restplus import Resource
+from flask_restplus import fields
 from flask import g as flask_g
 from ... import http_auth
 
@@ -58,7 +60,7 @@ class User(Resource):
 
         '''Create user'''
 
-        return create_user(api.payload), 201
+        return create_user(flask_g.username, api.payload), 201
 
 @ns.route('/<string:username>', endpoint='user')
 @ns.param('username', description="Resource ID")
@@ -102,3 +104,26 @@ class UserResourceView(Resource):
         '''Delete user'''
 
         return delete_user(flask_g.username, username, api.payload), 200
+
+
+from .api_models import delete_transaction_model
+from .api_models import transaction_model
+transaction_model = ns.model('Transaction', transaction_model)
+
+from ...logic import listtransactionfrom_user
+
+@ns.route('/<string:username>/transactions')
+@ns.param('username', description="Resource ID")
+class TransactionItems(Resource):
+
+    @http_auth.login_required
+    @ns.doc('list_transactions')
+    @ns.doc(body=delete_transaction_model, validate=True)
+    @ns.marshal_with(transaction_model, as_list=True, code=200)
+    @ns.response(200, 'OK', model=transaction_model)
+    @ns.response(404, 'Not Found')
+    def get(self, username):
+
+        '''List transactions from username'''
+
+        return listtransactionfrom_user(username), 200

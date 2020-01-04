@@ -134,7 +134,6 @@ class Item(db.Model, DictableBase):
     def as_api_dict(self):
 
         resource_d = self.as_dict()
-        #resource_d['membernumber'] = self.member_membernumber
 
         return resource_d
 
@@ -254,5 +253,62 @@ class Transaction(db.Model, DictableBase):
         resource_d = self.as_dict()
 
         return resource_d
+
     def __repr__(self):
         return "<Transaction {}>".format(self.uuid)
+
+class AuditLog(db.Model, DictableBase):
+    __tablename__ = 'auditlogs'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    uuid = db.Column(db.String(36), primary_key=True, default=uuid.uuid4())
+    ctime = db.Column(db.DateTime, default=datetime.datetime.now())
+    user = db.Column(db.String(64), nullable=False) # This is a cc of username
+    text = db.Column(db.Text())
+
+    def __init__(self, user, text):
+
+        self.uuid = str(uuid.uuid4())
+        self.ctime = datetime.datetime.now()
+        self.user = str(user)
+        self.text = str(text)
+
+    def as_api_dict(self):
+
+        resource_d = self.as_dict()
+
+        return resource_d
+
+    def __repr__(self):
+        return "<AuditLog {}>".format(self.uuid)
+
+class AuditLogTag(db.Model, DictableBase):
+    __tablename__ = 'auditlogtags'
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+
+    uuid = db.Column(db.String(36), primary_key=True, default=uuid.uuid4())
+    ctime = db.Column(db.DateTime, default=datetime.datetime.now())
+    tag = db.Column(db.String(255), index=True, nullable=False)
+    tagtype = db.Column(db.String(255))
+
+    auditlog_uuid = db.Column(db.String(255),
+                            db.ForeignKey('auditlogs.uuid'))
+    auditlog = db.relationship(AuditLog,
+            backref=backref("auditlogtags", cascade="all,delete"))
+
+    def __init__(self, auditlog_uuid, tag, tagtype=None):
+
+        self.uuid = str(uuid.uuid4())
+        self.ctime = datetime.datetime.now()
+        self.auditlog_uuid = str(auditlog_uuid)
+        self.tag = str(tag)
+        self.tagtype = str(tagtype)
+
+    def as_api_dict(self):
+
+        resource_d = self.as_dict()
+
+        return resource_d
+
+    def __repr__(self):
+        return "<AuditLogTag {}>".format(self.uuid)

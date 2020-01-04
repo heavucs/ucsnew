@@ -1,4 +1,6 @@
-from flask_restplus import Api, Resource, fields
+from flask_restplus import Api
+from flask_restplus import Resource
+from flask_restplus import fields
 from flask import g as flask_g
 from ... import http_auth
 

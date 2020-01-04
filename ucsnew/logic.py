@@ -14,6 +14,8 @@ from .models import Item
 from .models import Transaction
 from .models import Transaction_item
 from .models import User
+from .models import AuditLog
+from .models import AuditLogTag
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
@@ -109,7 +111,9 @@ def get_members(q_membernumber=None, q_lastname=None, q_phonenumber=None,
 
     return members_l
 
-def create_member(payload):
+def create_member(auth_user, payload):
+
+    log_tags = {}
 
     new_member_d = {
             'membernumber': str(payload['membernumber']),
@@ -123,7 +127,8 @@ def create_member(payload):
             'zipcode': str(payload['zipcode']),
             'phone': str(payload['phone']),
             'email': str(payload['email']),
-            'password': str(payload['password']),
+            'password': generate_password_hash(str(payload['password']),
+                app.config['PW_HASH']),
             'question': str(payload['question']),
             'answer': str(payload['answer']),
             'activationcode': str(payload['activationcode']),
@@ -154,6 +159,7 @@ def create_member(payload):
         db.session.commit()
 
         new_member_d = db_member.as_api_dict()
+        log_tags[new_member_d['membernumber']] = 'membernumber'
 
         app.logger.info("Created member {}: {} {}"
                 .format(
@@ -167,9 +173,21 @@ def create_member(payload):
         app.logger.error("IntegrityError: {}".format(e))
         raise Forbidden("Unable to create member: IntegrityError")
 
+    create_auditlog(auth_user, {
+            'text': "Created member {}: {} {}".format(
+                new_member_d['membernumber'],
+                new_member_d['firstname'],
+                new_member_d['lastname'],
+                ),
+            'tags': log_tags,
+            }
+        )
+
     return new_member_d
 
 def replace_member(auth_user, old_membernumber, payload):
+
+    log_tags = {}
 
     try:
         db_member = (
@@ -180,8 +198,10 @@ def replace_member(auth_user, old_membernumber, payload):
     except NoResultFound:
         raise NotFound
 
+    log_tags[old_membernumber] = 'membernumber'
+
     new_member_d = {
-            'membernumber': str(payload['membernumber']),
+            'membernumber': db_member.membernumber, # Wont change
             'established': db_member.established, # Wont change
             'firstname': str(payload['firstname']),
             'lastname': str(payload['lastname']),
@@ -192,14 +212,14 @@ def replace_member(auth_user, old_membernumber, payload):
             'zipcode': str(payload['zipcode']),
             'phone': str(payload['phone']),
             'email': str(payload['email']),
-            'password': str(payload['password']),
+            'password': generate_password_hash(str(payload['password']),
+                app.config['PW_HASH']),
             'question': str(payload['question']),
             'answer': str(payload['answer']),
             'activationcode': str(payload['activationcode']),
             'admin': str(payload['admin']),
             }
 
-    db_member.membernumber = new_member_d['membernumber']
     db_member.established = new_member_d['established']
     db_member.firstname = new_member_d['firstname']
     db_member.lastname = new_member_d['lastname']
@@ -233,9 +253,21 @@ def replace_member(auth_user, old_membernumber, payload):
         app.logger.error("IntegrityError: {}".format(e))
         raise Forbidden("Unable to replace resource: IntegrityError")
 
+    create_auditlog(auth_user, {
+            'text': "Replaced member {}: {} {}".format(
+                new_member_d['membernumber'],
+                new_member_d['firstname'],
+                new_member_d['lastname'],
+                ),
+            'tags': log_tags,
+            }
+        )
+
     return new_member_d
 
 def patch_member(auth_user, old_membernumber, payload):
+
+    log_tags = {}
 
     try:
         db_member = (
@@ -246,9 +278,10 @@ def patch_member(auth_user, old_membernumber, payload):
     except NoResultFound:
         raise NotFound
 
+    log_tags[old_membernumber] = 'membernumber'
+
     new_member_d = {
-            'membernumber': str(payload.get('membernumber',
-                db_member.membernumber)),
+            'membernumber': db_member.membernumber, # Wont change
             'established': db_member.established, # Wont change
             'firstname': str(payload.get('firstname',
                 db_member.firstname)),
@@ -280,7 +313,12 @@ def patch_member(auth_user, old_membernumber, payload):
                 db_member.admin)),
             }
 
-    db_member.membernumber = new_member_d['membernumber']
+    if 'password' in payload:
+        new_member_d['password'] = generate_password_hash(
+                str(payload['password']),
+                app.config['PW_HASH'],
+                ),
+
     db_member.established = new_member_d['established']
     db_member.firstname = new_member_d['firstname']
     db_member.lastname = new_member_d['lastname']
@@ -314,9 +352,21 @@ def patch_member(auth_user, old_membernumber, payload):
         app.logger.error("IntegrityError: {}".format(e))
         raise Forbidden("Unable to patch member: IntegrityError")
 
+    create_auditlog(auth_user, {
+            'text': "Patched member {}: {} {}".format(
+                new_member_d['membernumber'],
+                new_member_d['firstname'],
+                new_member_d['lastname'],
+                ),
+            'tags': log_tags,
+            }
+        )
+
     return new_member_d
 
 def delete_member(auth_user, old_membernumber, payload):
+
+    log_tags = {}
 
     try:
         db_member = (
@@ -327,18 +377,49 @@ def delete_member(auth_user, old_membernumber, payload):
     except NoResultFound:
         raise NotFound
 
+    log_tags[old_membernumber] = 'membernumber'
+    new_member_d = db_member.as_api_dict()
+
     try:
         db.session.delete(db_member)
         db.session.commit()
 
-        app.logger.info("Deleted member %s" % old_membernumber)
+        app.logger.info("Deleted member {}: {} {}"
+                .format(
+                    new_member_d['membernumber'],
+                    new_member_d['firstname'],
+                    new_member_d['lastname'],
+                    )
+                )
 
     except IntegrityError as e:
-        app.logger.error("IntegrityError: %s" % str(e))
+        app.logger.error("IntegrityError: {}".format(str(e)))
         raise Forbidden("Unable to delete item: IntegrityError")
 
-    return {'message': "Member %s successfully deleted by %s" % \
-            (old_membernumber, auth_user)}
+    create_auditlog(auth_user, {
+            'text': "Deleted member {}: {} {}".format(
+                new_member_d['membernumber'],
+                new_member_d['firstname'],
+                new_member_d['lastname'],
+                ),
+            'tags': log_tags,
+            }
+        )
+
+    return new_member_d
+
+def listitemfrom_member(old_membernumber):
+
+    try:
+        db_member = (
+                    Member.query
+                    .filter(Member.membernumber == old_membernumber)
+                    .one()
+                )
+    except NoResultFound:
+        raise NotFound
+
+    return get_items(q_membernumber=old_membernumber)
 
 
 ### Business logic for Item DAOs
@@ -445,6 +526,8 @@ def get_items(q_item_uuid=None, q_membernumber=None, q_description=None,
 
 def create_item(auth_user, payload):
 
+    log_tags = {}
+
     db_item = (
                 db.session.query(Item)
                 .filter_by(member_membernumber=payload['membernumber'])
@@ -495,6 +578,7 @@ def create_item(auth_user, payload):
         db.session.commit()
 
         new_item_d = db_item.as_api_dict()
+        log_tags[new_item_d['uuid']] = 'item_uuid'
 
         app.logger.info("Created item {}: {}"
                 .format(
@@ -507,9 +591,20 @@ def create_item(auth_user, payload):
         app.logger.error("IntegrityError: {}".format(e))
         raise Forbidden("Unable to create resource: IntegrityError")
 
+    create_auditlog(auth_user, {
+            'text': "Created item {}: {}".format(
+                new_item_d['uuid'],
+                new_item_d['description'],
+                ),
+            'tags': log_tags,
+            }
+        )
+
     return new_item_d
 
 def replace_item(auth_user, old_uuid, payload):
+
+    log_tags = {}
 
     try:
         db_item = (
@@ -520,9 +615,11 @@ def replace_item(auth_user, old_uuid, payload):
     except NoResultFound:
         raise NotFound
 
+    log_tags[old_uuid] = 'item_uuid'
+
     new_item_d = {
-            'itemnumber': str(db_item.itemnumber),
-            'membernumber': db_item.membernumber, # Wont Change
+            'itemnumber': db_item.itemnumber,       # Wont change
+            'membernumber': db_item.membernumber,   # Wont change
             'description': str(payload['description']),
             'category': str(payload['category']),
             'subject': str(payload['subject']),
@@ -539,8 +636,6 @@ def replace_item(auth_user, old_uuid, payload):
             'donate': str(payload['donate']),
             }
 
-    db_item.itemnumber = new_item_d['itemnumber'],
-    #db_item.membernumber = new_item_d['membernumber'],
     db_item.description = new_item_d['description'],
     db_item.category = new_item_d['category'],
     db_item.subject = new_item_d['subject'],
@@ -561,8 +656,8 @@ def replace_item(auth_user, old_uuid, payload):
 
         app.logger.info("Replaced item {}: {}"
                 .format(
-                    new_item_d['ID'],
-                    new_item_d['Description'],
+                    new_item_d['uuid'],
+                    new_item_d['description'],
                     )
                 )
 
@@ -570,9 +665,20 @@ def replace_item(auth_user, old_uuid, payload):
         app.logger.error("IntegrityError: {}".format(e))
         raise Forbidden("Unable to replace item: IntegrityError")
 
+    create_auditlog(auth_user, {
+            'text': "Replaced item {}: {}".format(
+                new_item_d['uuid'],
+                new_item_d['description'],
+                ),
+            'tags': log_tags,
+            }
+        )
+
     return new_item_d
 
 def patch_item(auth_user, old_uuid, payload):
+
+    log_tags = {}
 
     try:
         db_item = (
@@ -583,9 +689,11 @@ def patch_item(auth_user, old_uuid, payload):
     except NoResultFound:
         raise NotFound("This is a not found error ")
 
+    log_tags[old_uuid] = 'item_uuid'
+
     new_item_d = {
-            'itemnumber': str(db_item.itemnumber),
-            'membernumber': db_item.membernumber, # Wont Change
+            'itemnumber': db_item.itemnumber,       # Wont change
+            'membernumber': db_item.membernumber,   # Wont change
             'description': str(payload.get('description',
                 db_item.description)),
             'category': str(payload.get('category',
@@ -614,8 +722,6 @@ def patch_item(auth_user, old_uuid, payload):
                 db_item.donate)),
             }
 
-    db_item.itemnumber = new_item_d['itemnumber'],
-    #db_item.membernumber = new_item_d['membernumber'],
     db_item.description = new_item_d['description'],
     db_item.category = new_item_d['category'],
     db_item.subject = new_item_d['subject'],
@@ -645,9 +751,20 @@ def patch_item(auth_user, old_uuid, payload):
         app.logger.error("IntegrityError: {}".format(e))
         raise Forbidden("Unable to patch item: IntegrityError")
 
+    create_auditlog(auth_user, {
+            'text': "Patched item {}: {}".format(
+                new_item_d['uuid'],
+                new_item_d['description'],
+                ),
+            'tags': log_tags,
+            }
+        )
+
     return new_item_d
 
 def delete_item(auth_user, old_itemnumber, payload):
+
+    log_tags = {}
 
     try:
         db_item = (
@@ -658,20 +775,36 @@ def delete_item(auth_user, old_itemnumber, payload):
     except NoResultFound:
         raise NotFound
 
+    log_tags[old_uuid] = 'item_uuid'
+    new_item_d = db_item.as_api_dict()
+
     db_item.deleted = '1'
 
     try:
         #db.session.delete(db_item)
         db.session.commit()
 
-        app.logger.info("Deleted item %s" % old_itemnumber)
+        app.logger.info("Deleted item {}: {}"
+                .format(
+                    new_item_d['uuid'],
+                    new_item_d['description'],
+                    )
+                )
 
     except IntegrityError as e:
-        app.logger.error("IntegrityError: %s" % str(e))
+        app.logger.error("IntegrityError: {}".format(str(e)))
         raise Forbidden("Unable to delete item: IntegrityError")
 
-    return {'message': "Item %s successfully deleted by %s" % \
-            (old_itemnumber, auth_user)}
+    create_auditlog(auth_user, {
+            'text': "Deleted item {}: {}".format(
+                new_item_d['uuid'],
+                new_item_d['description'],
+                ),
+            'tags': log_tags,
+            }
+        )
+
+    return new_item_d
 
 
 ### Business logic for Transaction DAOs
@@ -760,10 +893,12 @@ def get_transactions(q_username=None, q_itemnumber=None, q_transaction_uuid=None
 
 def create_transaction(auth_user, payload):
 
+    log_tags = {}
+
     previous = get_transactions(q_username=auth_user, q_finalized=False)
     if len(previous) > 0:
         previous = previous[0]
-        raise Forbidden("Transaction {} already open by {}".format(
+        raise BadRequest("Transaction {} already open by {}".format(
             previous.uuid, auth_user))
 
     new_transaction_d = {
@@ -789,6 +924,8 @@ def create_transaction(auth_user, payload):
         db.session.commit()
 
         new_transaction_d = db_transaction.as_api_dict()
+        log_tags[new_transaction_d['uuid']] = 'transaction_uuid'
+
         app.logger.info("Created transaction {}"
                 .format(
                     db_transaction.uuid,
@@ -799,9 +936,19 @@ def create_transaction(auth_user, payload):
         app.logger.error("IntegrityError: {}".format(e))
         raise Forbidden("Unable to create transaction: IntegrityError")
 
+    create_auditlog(auth_user, {
+            'text': "Created transaction {}".format(
+                new_transaction_d['uuid'],
+                ),
+            'tags': log_tags,
+            }
+        )
+
     return db_transaction.as_api_dict()
 
 def replace_transaction(auth_user, old_transaction_uuid, payload):
+
+    log_tags = {}
 
     try:
         db_transaction = (
@@ -812,6 +959,8 @@ def replace_transaction(auth_user, old_transaction_uuid, payload):
     except NoResultFound:
         raise NotFound
 
+    log_tags[old_transaction_uuid] = 'transaction_uuid'
+
     finalized = payload['finalized']
     if isinstance(finalized, str):
         if finalized == 'True' or finalized == '1':
@@ -821,12 +970,31 @@ def replace_transaction(auth_user, old_transaction_uuid, payload):
 
     if (db_transaction.finalized == True
             and finalized == True):
-        raise Forbidden("Transaction {} is already finalized".format(
+        raise BadRequest("Transaction {} is already finalized".format(
             old_transaction_uuid))
 
     if (db_transaction.finzalized == False
             and finalized == True):
         db_transaction.ftime = datetime.datetime.now()
+
+        create_auditlog(auth_user, {
+                'text': "Transaction {} is being finalized".format(
+                    new_transaction_d['uuid'],
+                    ),
+                'tags': log_tags,
+                }
+            )
+
+    if (db_transaction.finalized == True
+            and finalized == False):
+
+        create_auditlog(auth_user, {
+                'text': "Transaction {} is being reopened".format(
+                    new_transaction_d['uuid'],
+                    ),
+                'tags': log_tags,
+                }
+            )
 
     new_transaction_d = {
             'finalized': finalized,
@@ -855,9 +1023,19 @@ def replace_transaction(auth_user, old_transaction_uuid, payload):
         app.logger.error("IntegrityError: {}".format(e))
         raise Forbidden("Unable to replace item: IntegrityError")
 
+    create_auditlog(auth_user, {
+            'text': "Replaced transaction {}".format(
+                new_transaction_d['uuid'],
+                ),
+            'tags': log_tags,
+            }
+        )
+
     return new_transaction_d
 
 def patch_transaction(auth_user, old_transaction_uuid, payload):
+
+    log_tags = {}
 
     try:
         db_transaction = (
@@ -868,6 +1046,8 @@ def patch_transaction(auth_user, old_transaction_uuid, payload):
     except NoResultFound:
         raise NotFound
 
+    log_tags[old_transaction_uuid] = 'transaction_uuid'
+
     finalized = payload.get('finalized', db_transaction.finalized)
     if isinstance(finalized, str):
         if finalized == 'True' or finalized == '1':
@@ -877,12 +1057,31 @@ def patch_transaction(auth_user, old_transaction_uuid, payload):
 
     if (db_transaction.finalized == True
             and finalized == True):
-        raise Forbidden("Transaction {} is already finalized".format(
+        raise BadRequest("Transaction {} is already finalized".format(
             old_transaction_uuid))
 
     if (db_transaction.finalized == False
             and finalized == True):
         db_transaction.ftime = datetime.datetime.now()
+
+        create_auditlog(auth_user, {
+                'text': "Transaction {} is being finalized".format(
+                    new_transaction_d['uuid'],
+                    ),
+                'tags': log_tags,
+                }
+            )
+
+    if (db_transaction.finalized == True
+            and finalized == False):
+
+        create_auditlog(auth_user, {
+                'text': "Transaction {} is being reopened".format(
+                    new_transaction_d['uuid'],
+                    ),
+                'tags': log_tags,
+                }
+            )
 
     new_transaction_d = {
             'finalized': finalized,
@@ -913,9 +1112,19 @@ def patch_transaction(auth_user, old_transaction_uuid, payload):
         app.logger.error("IntegrityError: {}".format(e))
         raise Forbidden("Unable to patch item: IntegrityError")
 
+    create_auditlog(auth_user, {
+            'text': "Patched transaction {}".format(
+                new_transaction_d['uuid'],
+                ),
+            'tags': log_tags,
+            }
+        )
+
     return new_transaction_d
 
 def delete_transaction(auth_user, old_transaction_uuid, payload):
+
+    log_tags = {}
 
     try:
         db_transaction = (
@@ -926,13 +1135,16 @@ def delete_transaction(auth_user, old_transaction_uuid, payload):
     except NoResultFound:
         raise NotFound
 
+    log_tags[old_transaction_uuid] = 'transaction_uuid'
+    new_transaction_d = db_transaction.as_api_dict()
+
     if db_transaction.finalized == True:
-        raise Forbidden("Transaction {} is already finalized".format(
+        raise BadRequest("Transaction {} is already finalized".format(
             old_transaction_uuid))
 
-    num_items = len(listfrom_transaction(old_transaction_uuid))
+    num_items = len(listitemfrom_transaction(old_transaction_uuid))
     if num_items > 0:
-        raise Forbidden("Unable to delete transaction {} with items {}".format(
+        raise BadRequest("Unable to delete transaction {} with items {}".format(
             old_transaction_uuid, num_items))
 
     try:
@@ -945,13 +1157,17 @@ def delete_transaction(auth_user, old_transaction_uuid, payload):
         app.logger.error("IntegrityError: {}".format(str(e)))
         raise Forbidden("Unable to delete item: IntegrityError")
 
-    return {'message': "Transaction {} successfully deleted by {}".format(
-            old_transaction_uuid,
-            auth_user,
-            )
-        }
+    create_auditlog(auth_user, {
+            'text': "Deleted transaction {}".format(
+                new_transaction_d['uuid'],
+                ),
+            'tags': log_tags,
+            }
+        )
 
-def listfrom_transaction(old_transaction_uuid):
+    return new_transaction_d
+
+def listitemfrom_transaction(old_transaction_uuid):
 
     try:
         db_transaction = (
@@ -964,7 +1180,9 @@ def listfrom_transaction(old_transaction_uuid):
 
     return get_items(q_transaction_uuid=old_transaction_uuid)
 
-def addto_transaction(auth_user, old_transaction_uuid, old_item_uuid):
+def additemto_transaction(auth_user, old_transaction_uuid, old_item_uuid):
+
+    log_tags = {}
 
     try:
         db_transaction = (
@@ -975,8 +1193,10 @@ def addto_transaction(auth_user, old_transaction_uuid, old_item_uuid):
     except NoResultFound:
         raise NotFound
 
+    log_tags[old_transaction_uuid] = 'transaction_uuid'
+
     if db_transaction.finalized == True:
-        raise Forbidden("Transaction {} is already finalized".format(
+        raise BadRequest("Transaction {} is already finalized".format(
             old_transaction_uuid))
 
     try:
@@ -988,24 +1208,38 @@ def addto_transaction(auth_user, old_transaction_uuid, old_item_uuid):
     except NoResultFound:
         raise NotFound
 
+    log_tags[old_item_uuid] = 'item_uuid'
+
     if db_transaction.finalized:
-        raise Forbidden("Transaction {} is finalized".format(
+        raise BadRequest("Transaction {} is finalized".format(
             old_transaction_uuid))
 
     try:
         db_transaction.items.append(db_item)
         db.session.commit()
 
-        app.logger.info("Added item {} to transaction {}".format(
-            old_item_uuid, old_transaction_uuid))
+        app.logger.info("Added item {}({}) to transaction {}".format(
+            db_item.description, old_item_uuid, old_transaction_uuid))
 
     except IntegrityError as e:
         app.logger.error("IntegrityError: {}".format(str(e)))
         raise Forbidden("Unable to add item to transaction: IntegrityError")
 
-    return get_items(q_transaction_uuid=old_transaction_uuid)
+    create_auditlog(auth_user, {
+            'text': "Added item {}({}) to transaction {}".format(
+                db_item.description,
+                old_item_uuid,
+                old_transaction_uuid,
+                ),
+            'tags': log_tags,
+            }
+        )
 
-def removefrom_transaction(auth_user, old_transaction_uuid, old_item_uuid):
+    return listitemfrom_transaction(old_transaction_uuid)
+
+def removeitemfrom_transaction(auth_user, old_transaction_uuid, old_item_uuid):
+
+    log_tags = {}
 
     try:
         db_transaction = (
@@ -1016,8 +1250,10 @@ def removefrom_transaction(auth_user, old_transaction_uuid, old_item_uuid):
     except NoResultFound:
         raise NotFound
 
+    log_tags[old_transaction_uuid] = 'transaction_uuid'
+
     if db_transaction.finalized == True:
-        raise Forbidden("Transaction {} is already finalized".format(
+        raise BadRequest("Transaction {} is already finalized".format(
             old_transaction_uuid))
 
     try:
@@ -1029,22 +1265,34 @@ def removefrom_transaction(auth_user, old_transaction_uuid, old_item_uuid):
     except NoResultFound:
         raise NotFound
 
+    log_tags[old_item_uuid] = 'item_uuid'
+
     if db_transaction.finalized:
-        raise Forbidden("Transaction {} is finalized".format(
+        raise BadRequest("Transaction {} is finalized".format(
             old_transaction_uuid))
 
     try:
         db_transaction.items.remove(db_item)
         db.session.commit()
 
-        app.logger.info("Removed item {} from transaction {}".format(
-            old_item_uuid, old_transaction_uuid))
+        app.logger.info("Removed item {}({}) from transaction {}".format(
+            db_item.description, old_item_uuid, old_transaction_uuid))
 
     except IntegrityError as e:
         app.logger.error("IntegrityError: {}".format(str(e)))
         raise Forbidden("Unable to remove item from transaction: IntegrityError")
 
-    return get_items(q_transaction_uuid=old_transaction_uuid)
+    create_auditlog(auth_user, {
+            'text': "Removed item {}({}) to transaction {}".format(
+                db_item.description,
+                old_item_uuid,
+                old_transaction_uuid,
+                ),
+            'tags': log_tags,
+            }
+        )
+
+    return listitemfrom_transaction(old_transaction_uuid)
 
 
 ### Business logic for User DAOs
@@ -1075,7 +1323,9 @@ def get_users(q_username=None, q_firstname=None, q_lastname=None,
 
     return users_l
 
-def create_user(payload):
+def create_user(auth_user, payload):
+
+    log_tags = {}
 
     new_user = {
             'username': str(payload['username']),
@@ -1097,21 +1347,36 @@ def create_user(payload):
         db.session.commit()
 
         new_user_d = db_user.as_api_dict()
+        log_tags[new_user_d['uuid']] = 'username'
 
-        app.logger.info("Created user {}".format(new_user['username']))
+        app.logger.info("Created user {}".format(new_user_d['username']))
 
     except IntegrityError as e:
         app.logger.error("IntegrityError: {}".format(str(e)))
         raise Forbidden("Unable to create resource: IntegrityError")
 
+    create_auditlog(auth_user, {
+            'text': "Created user {}".format(
+                new_user_d['username'],
+                ),
+            'tags': log_tags,
+            }
+        )
+
     return new_user_d
 
 def replace_user(auth_user, old_username, payload):
+
+    log_tags = {}
 
     try:
         db_user = User.query.filter(User.username == old_username).one()
     except:
         raise NotFound
+
+    log_tags[old_username] = 'username'
+    if not old_username == payload['username']:
+        log_tags[payload['username']] = 'username'
 
     new_user = {
             'username': str(payload['username']),
@@ -1130,6 +1395,7 @@ def replace_user(auth_user, old_username, payload):
         db.session.commit()
 
         new_user_d = db_user.as_api_dict()
+        log_tags[new_user_d['uuid']] = 'user_uuid'
 
         app.logger.info("Replaced user {} with {}".format(
             old_username, new_user_d['username']))
@@ -1138,16 +1404,31 @@ def replace_user(auth_user, old_username, payload):
         app.logger.error("IntegrityError: {}".format(str(e)))
         raise Forbidden("Unable to replace resource: IntegrityError")
 
+    create_auditlog(auth_user, {
+            'text': "Replaced user {} with {}".format(
+                old_username,
+                new_user_d['username'],
+                ),
+            'tags': log_tags,
+            }
+        )
+
     return new_user_d
 
 def patch_user(auth_user, old_username, payload):
+
+    log_tags = {}
 
     try:
         db_user = User.query.filter(User.username == old_username).one()
     except:
         raise NotFound
 
-    new_user = {
+    log_tags[old_username] = 'username'
+    if not old_username == payload.get('username', ''):
+        log_tags[payload['username']] = 'username'
+
+    new_user_d = {
             'username': str(payload.get('username', db_user.username)),
             'password': str(payload.get('password', db_user.password)),
             'firstname': str(payload.get('firstname', db_user.firstname)),
@@ -1155,13 +1436,15 @@ def patch_user(auth_user, old_username, payload):
             }
 
     if 'password' in payload:
-        new_user['password'] = generate_password_hash(str(payload['password']),
-                app.config['PW_HASH']),
+        new_user_d['password'] = generate_password_hash(
+                str(payload['password']),
+                app.config['PW_HASH'],
+                ),
 
-    db_user.username = new_user.get('username',db_user.username)
-    db_user.password = new_user.get('password',db_user.password)
-    db_user.firstname = new_user.get('firstname',db_user.firstname)
-    db_user.lastname = new_user.get('lastname',db_user.lastname)
+    db_user.username = new_user_d.get('username',db_user.username)
+    db_user.password = new_user_d.get('password',db_user.password)
+    db_user.firstname = new_user_d.get('firstname',db_user.firstname)
+    db_user.lastname = new_user_d.get('lastname',db_user.lastname)
 
     try:
         db.session.commit()
@@ -1175,14 +1458,28 @@ def patch_user(auth_user, old_username, payload):
         app.logger.error("IntegrityError: {}".format(str(e)))
         raise Forbidden("Unable to patch resource: IntegrityError")
 
+    create_auditlog(auth_user, {
+            'text': "Patched user {} with {}".format(
+                old_username,
+                new_user_d['username'],
+                ),
+            'tags': log_tags,
+            }
+        )
+
     return new_user_d
 
 def delete_user(auth_user, old_username, payload):
+
+    log_tags = {}
 
     try:
         db_user = User.query.filter(User.username == old_username).one()
     except:
         raise NotFound
+
+    log_tags[old_username] = 'username'
+    new_user_d = db_user.as_api_dict()
 
     try:
         db.session.delete(db_user)
@@ -1194,11 +1491,29 @@ def delete_user(auth_user, old_username, payload):
         app.logger.error("IntegrityError: {}".format(str(e)))
         raise Forbidden("Unable to delete resource: IntegrityError")
 
-    return {'message': "User {} successfully deleted by {}".format(
-            old_username,
-            auth_user,
-            )
-        }
+    create_auditlog(auth_user, {
+            'text': "Deleted user {}".format(
+                new_user_d['username'],
+                ),
+            'tags': log_tags,
+            }
+        )
+
+    return new_user_d
+
+
+def listtransactionfrom_user(old_username):
+
+    try:
+        db_user = (
+                    User.query
+                    .filter(User.username == old_username)
+                    .one()
+                )
+    except NoResultFound:
+        raise NotFound
+
+    return get_transactions(q_username=old_username)
 
 
 ### Business logic for Barcode DAOs
@@ -1236,3 +1551,131 @@ def generate_barcode(codedata):
     barcode_img.seek(0)
 
     return barcode_img
+
+### Business logic for AuditLog DAOs
+
+def get_auditlogs(q_auditlog_uuid=None, q_username=None, q_tag=None,
+        page=1, per_page=25):
+
+    page = page if page else 1
+    per_page = per_page if per_page else 25
+
+    db_auditlog = (
+            db.session.query(AuditLog)
+            .order_by(AuditLog.ctime.asc())
+        )
+    if q_auditlog_uuid:
+        db_auditlog = db_auditlog.filter(AuditLog.uuid == q_auditlog_uuid)
+    if q_username:
+        db_auditlog = db_auditlog.filter(AuditLog.user.like("{}%%"
+                .format(q_username)))
+    if q_tag:
+        db_auditlog = db_auditlog.join(AuditLogTag)
+        db_auditlog = db_auditlog.filter(AuditLogTag.tag.like("{}%%"
+                .format(q_tag)))
+
+    pagination = db_auditlog.paginate(page=page, per_page=per_page,
+            error_out=False)
+    logs_l = pagination.items
+
+    newlog_l = []
+    for log in logs_l:
+        new_log = log.as_api_dict().copy()
+
+        tags = []
+        for tag in get_auditlogtags(new_log['uuid']):
+            tags.append(tag.as_api_dict()['tag'])
+        new_log['tags'] = tags
+
+        newlog_l.append(new_log)
+    logs_l = newlog_l
+
+    return logs_l
+
+def create_auditlog(auth_user, payload):
+
+    new_log_d = {
+            'user': auth_user,
+            'text': payload['text'],
+            }
+
+    if not new_log_d['text']:
+        raise BadRequest("Unable to create blank log entry")
+
+    db_auditlog = AuditLog(
+            new_log_d['user'],
+            new_log_d['text'],
+            )
+
+    try:
+        db.session.add(db_auditlog)
+        db.session.commit()
+
+        new_log_d = db_auditlog.as_api_dict()
+
+    except IntegrityError as e:
+        app.logger.error("IntegrityError: {}".format(e))
+        raise Forbidden("Unable to create log: IntegrityError")
+
+    tags = payload.get('tags', {}).items()
+    for tag, tagtype in tags:
+        payload = {
+                'tag': tag,
+                'tagtype': tagtype,
+                }
+        create_auditlogtag(new_log_d['uuid'], payload)
+
+    return new_log_d
+
+def get_auditlogtags(q_auditlog_uuid=None):
+
+    db_auditlogtag = (
+            db.session.query(AuditLogTag)
+            .order_by(AuditLogTag.ctime.asc())
+        )
+    if q_auditlog_uuid:
+        db_auditlogtag = db_auditlogtag.join(AuditLog)
+        db_auditlogtag = db_auditlogtag.filter(AuditLog.uuid == q_auditlog_uuid)
+
+    tags_l = db_auditlogtag.all()
+
+    return tags_l
+
+def create_auditlogtag(auditlog_uuid, payload):
+
+    try:
+        db_auditlog = (
+                AuditLog.query
+                .filter(AuditLog.uuid == auditlog_uuid)
+                .one()
+            )
+    except:
+        raise NotFound
+
+    new_tag_d = {
+            'auditlog': db_auditlog,
+            'tag': payload['tag'],
+            'tagtype': payload.get('tagtype', ''),
+            }
+
+    if not new_tag_d['tag']:
+        raise BadRequest("Unable to create blank log tag")
+
+
+    db_auditlogtag = AuditLogTag(
+            auditlog_uuid,
+            new_tag_d['tag'],
+            new_tag_d['tagtype'],
+            )
+
+    try:
+        db.session.add(db_auditlogtag)
+        db.session.commit()
+
+        new_tag_d = db_auditlogtag.as_api_dict()
+
+    except IntegrityError as e:
+        app.logger.error("IntegrityError: {}".format(e))
+        raise Forbidden("Unable to create log: IntegrityError")
+
+    return new_tag_d
