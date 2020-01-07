@@ -8,8 +8,9 @@
     source bin/activate
     pip install -U pip
     #pip install flask flask-restplus flask-sqlalchemy flask_httpauth
-    #pip install python-barcode
-    #pip install mysqlclient # Added for UCS Legacy Support
+    #pip install python-barcode pillow # For generating barcodes
+    #pip install fpdf           # For generating PDFs
+    #pip install mysqlclient    # Added for UCS Legacy Support
     pip install -r requirements.txt
 
 2. Setup git environment

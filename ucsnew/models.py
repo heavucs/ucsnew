@@ -1,14 +1,15 @@
 from flask import current_app
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import backref
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
+from decimal import ROUND_HALF_UP
 import datetime
 import uuid
 
 db = SQLAlchemy()
 app = current_app
 
-Transaction_item = db.Table('transaction_item', db.Model.metadata,
+Transaction_Item = db.Table('transaction_item', db.Model.metadata,
             db.Column('transaction_uuid', db.String(36),
                 db.ForeignKey('transactions.uuid')),
             db.Column('item_uuid', db.String(36),
@@ -232,7 +233,7 @@ class Transaction(db.Model, DictableBase):
     user = db.relationship("User", backref="transactions")
 
     items = db.relationship("Item",
-                secondary=Transaction_item,
+                secondary=Transaction_Item,
                 backref='transactions')
 
     def __init__(self, user, finalized, ftime, payment_method,

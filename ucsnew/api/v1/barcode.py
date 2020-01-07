@@ -16,8 +16,6 @@ class Barcode(Resource):
     @http_auth.login_required
     @ns.doc('create_barcode')
     @ns.response(200, 'OK')
-    @ns.response(403, 'Forbidden')
-    @ns.response(404, 'Not Found')
     @ns.produces(['image/svg'])
     def get(self, codedata):
 
@@ -26,8 +24,9 @@ class Barcode(Resource):
         barcode_img = generate_barcode(codedata)
 
         return send_file(
-            barcode_img,
-            mimetype='image/svg',
-            as_attachment=True,
-            attachment_filename='{}.svg'.format(codedata)
-            )
+                barcode_img,
+                mimetype='image/svg',
+                as_attachment=True,
+                attachment_filename='{}.svg'.format(codedata),
+                cache_timeout=0,
+                )

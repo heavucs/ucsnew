@@ -2,6 +2,7 @@ import datetime
 import re
 import uuid
 import barcode
+from fpdf import FPDF
 from io import BytesIO
 import MySQLdb as sql
 from decimal import Decimal, ROUND_HALF_UP
@@ -12,7 +13,7 @@ from .models import db
 from .models import Member
 from .models import Item
 from .models import Transaction
-from .models import Transaction_item
+from .models import Transaction_Item
 from .models import User
 from .models import AuditLog
 from .models import AuditLogTag
@@ -444,7 +445,7 @@ def get_items(q_item_uuid=None, q_membernumber=None, q_description=None,
         db_item = db_item.filter(Item.description.like("%%{}%%"
                 .format(q_description)))
     if q_transaction_uuid:
-        db_item = db_item.join(Transaction_item)
+        db_item = db_item.join(Transaction_Item)
         db_item = db_item.join(Transaction)
         db_item = db_item.filter(Transaction.uuid == q_transaction_uuid)
 
@@ -975,11 +976,14 @@ def replace_transaction(auth_user, old_transaction_uuid, payload):
 
     if (db_transaction.finzalized == False
             and finalized == True):
+        if len(get_items(q_transaction_uuid=old_transaction_uuid)) == 0:
+            raise BadRequest("Unable to finalize Transaction {} with 0 items".format(
+                old_transaction_uuid))
         db_transaction.ftime = datetime.datetime.now()
 
         create_auditlog(auth_user, {
                 'text': "Transaction {} is being finalized".format(
-                    new_transaction_d['uuid'],
+                    db_transaction.uuid,
                     ),
                 'tags': log_tags,
                 }
@@ -990,7 +994,7 @@ def replace_transaction(auth_user, old_transaction_uuid, payload):
 
         create_auditlog(auth_user, {
                 'text': "Transaction {} is being reopened".format(
-                    new_transaction_d['uuid'],
+                    db_transaction.uuid,
                     ),
                 'tags': log_tags,
                 }
@@ -1062,22 +1066,14 @@ def patch_transaction(auth_user, old_transaction_uuid, payload):
 
     if (db_transaction.finalized == False
             and finalized == True):
+        if len(get_items(q_transaction_uuid=old_transaction_uuid)) == 0:
+            raise BadRequest("Unable to finalize Transaction {} with 0 items".format(
+                old_transaction_uuid))
         db_transaction.ftime = datetime.datetime.now()
 
         create_auditlog(auth_user, {
                 'text': "Transaction {} is being finalized".format(
-                    new_transaction_d['uuid'],
-                    ),
-                'tags': log_tags,
-                }
-            )
-
-    if (db_transaction.finalized == True
-            and finalized == False):
-
-        create_auditlog(auth_user, {
-                'text': "Transaction {} is being reopened".format(
-                    new_transaction_d['uuid'],
+                    db_transaction.uuid,
                     ),
                 'tags': log_tags,
                 }
@@ -1091,6 +1087,17 @@ def patch_transaction(auth_user, old_transaction_uuid, payload):
             'total': str(payload.get('total',
                 db_transaction.total)),
             }
+
+    if (db_transaction.finalized == True
+            and finalized == False):
+
+        create_auditlog(auth_user, {
+                'text': "Transaction {} is being reopened".format(
+                    db_transaction.uuid,
+                    ),
+                'tags': log_tags,
+                }
+            )
 
     db_transaction.finalized = new_transaction_d['finalized']
     db_transaction.ftime = new_transaction_d['ftime']
@@ -1208,6 +1215,11 @@ def additemto_transaction(auth_user, old_transaction_uuid, old_item_uuid):
     except NoResultFound:
         raise NotFound
 
+    if datetime.datetime.now().weekday() in app.config['DISCOUNT_PRICE_DAY']:
+        saleprice = db_item.discountprice
+    else:
+        saleprice = db_item.price
+
     log_tags[old_item_uuid] = 'item_uuid'
 
     if db_transaction.finalized:
@@ -1216,6 +1228,7 @@ def additemto_transaction(auth_user, old_transaction_uuid, old_item_uuid):
 
     try:
         db_transaction.items.append(db_item)
+        db_transaction.total += saleprice
         db.session.commit()
 
         app.logger.info("Added item {}({}) to transaction {}".format(
@@ -1265,6 +1278,11 @@ def removeitemfrom_transaction(auth_user, old_transaction_uuid, old_item_uuid):
     except NoResultFound:
         raise NotFound
 
+    if datetime.datetime.now().weekday() in app.config['DISCOUNT_PRICE_DAY']:
+        saleprice = db_item.discountprice
+    else:
+        saleprice = db_item.price
+
     log_tags[old_item_uuid] = 'item_uuid'
 
     if db_transaction.finalized:
@@ -1273,6 +1291,7 @@ def removeitemfrom_transaction(auth_user, old_transaction_uuid, old_item_uuid):
 
     try:
         db_transaction.items.remove(db_item)
+        db_transaction.total -= saleprice
         db.session.commit()
 
         app.logger.info("Removed item {}({}) from transaction {}".format(
@@ -1293,6 +1312,292 @@ def removeitemfrom_transaction(auth_user, old_transaction_uuid, old_item_uuid):
         )
 
     return listitemfrom_transaction(old_transaction_uuid)
+
+def generate_transaction_pdf(transaction_uuid):
+
+    try:
+        db_transaction = (
+                    Transaction.query
+                    .filter(Transaction.uuid == transaction_uuid)
+                    .one()
+                )
+    except NoResultFound:
+        raise NotFound
+    transaction_d = db_transaction.as_api_dict()
+
+    if not transaction_d['finalized']:
+        raise BadRequest("Transaction {} must be finalized".format(
+            transaction_uuid))
+
+    items_l = get_items(q_transaction_uuid=transaction_d['uuid'])
+
+    pdfstore = {}
+    pdfstore['MEM'] = BytesIO()
+    pdfstore['FILE'] = "{}/{}".format(
+            app.config['TEMP_DIR'],
+            transaction_uuid + '.pdf',
+            )
+
+    class PDF_Transaction(FPDF):
+
+        def header(self):
+            uuid = str(transaction_d['uuid'])
+            ftime = str(transaction_d['ftime'].strftime("%m/%d/%Y %H:%M:%S"))
+            user = str(transaction_d['user_username'])
+            transaction_barcode = generate_barcode(uuid, imgtype='PNG')
+
+            self.set_font('Arial', 'B', 10)
+            self.cell(78, 5, 'Transaction UUID', 'TL', 0, 'L')
+            #TODO: Transaction Barcode is commented until it can be formatted correctly
+            #self.image(transaction_barcode, 90, self.get_y(), 30, type='PNG')
+            self.cell(93, 5, 'Date', 'T', 0, 'L')
+            self.cell(23, 5, 'User', 'TR', 1, 'L')
+            self.set_font('Arial', '', 10)
+            self.cell(78, 5, uuid, 'BL', 0, 'L')
+            self.cell(93, 5, ftime, 'B', 0, 'L')
+            self.cell(23, 5, user, 'BR', 1, 'L')
+            self.ln(5)
+            self.set_font('Arial', 'B', 10)
+            self.cell(158, 5, 'Description', 0, 0, 'L')
+            self.cell(21, 5, 'Item Count', 0, 0, 'L')
+            self.cell(15, 5, 'Price', 0, 1, 'R')
+
+        def footer(self):
+            total_items = str(len(items_l))
+            subtotal_sales = transaction_d['total'].quantize(
+                    Decimal('0.01'), rounding=ROUND_HALF_UP)
+            sales_tax_rate = str((app.config['SALES_TAX_RATE'] * 100).quantize(
+                    Decimal('0.01'), rounding=ROUND_HALF_UP))
+            sales_tax = (subtotal_sales * app.config['SALES_TAX_RATE']).quantize(
+                    Decimal('0.01'), rounding=ROUND_HALF_UP)
+            grand_total = (subtotal_sales + sales_tax).quantize(
+                    Decimal('0.01'), rounding=ROUND_HALF_UP)
+            PAYMENT_TYPES = ['CASH', 'CHECK', 'CREDIT', 'OTHER']
+            payment_method = PAYMENT_TYPES[int(transaction_d['payment_method'])]
+            receipt_checkspayable = app.config['RECEIPT_CHECKSPAYABLE']
+            receipt_logo = str(app.config['RECEIPT_LOGO'])
+            receipt_msg1 = str(app.config['RECEIPT_MSG1'])
+            receipt_msg2 = str(app.config['RECEIPT_MSG2'])
+            receipt_msg3 = str(app.config['RECEIPT_MSG3'])
+            receipt_msg4 = str(app.config['RECEIPT_MSG4'])
+            receipt_msg5 = str(app.config['RECEIPT_MSG5'])
+            receipt_msg6 = str(app.config['RECEIPT_MSG6'])
+            receipt_msg7 = str(app.config['RECEIPT_MSG7'])
+            receipt_msg8 = str(app.config['RECEIPT_MSG8'])
+
+            self.set_y(-100)
+            self.set_font('Arial', '', 12)
+            self.cell(165, 5, 'Total Items', 'T', 0, 'L')
+            self.cell(30, 5, total_items, 'T', 1, 'R')
+            self.cell(165, 5, 'Subtotal Sales', 0, 0, 'L')
+            self.cell(30, 5, "${}".format(subtotal_sales), 0, 1, 'R')
+            self.cell(165, 5, 'Sales Tax ({}%)'.format(sales_tax_rate), 0, 0, 'L')
+            self.cell(30, 5, "${}".format(sales_tax), 0, 1, 'R')
+            self.cell(165, 5, 'Grand Total', 0, 0, 'L')
+            self.cell(30, 5, "${}".format(grand_total), 0, 1, 'R')
+            self.cell(165, 5, 'Payment Type', 0, 0, 'L')
+            self.cell(30, 5, payment_method, 0, 1, 'R')
+            self.ln(3)
+            self.cell(195, 5, receipt_checkspayable, 0, 1, 'C')
+            try:
+                self.image(receipt_logo, 90, self.get_y(), 30)
+            except:
+                app.logger.warning("Unable to load image: {}"
+                        .format(receipt_logo))
+            self.ln(11)
+            self.cell(195, 5, receipt_msg1, 0, 1, 'L')
+            self.cell(195, 5, receipt_msg2, 0, 1, 'L')
+            self.cell(195, 5, receipt_msg3, 0, 1, 'l')
+            self.cell(195, 5, receipt_msg4, 0, 1, 'L')
+            self.cell(195, 5, receipt_msg5, 0, 1, 'L')
+            self.cell(195, 5, receipt_msg6, 0, 1, 'L')
+            self.cell(195, 5, receipt_msg7, 0, 1, 'C')
+            self.cell(195, 5, receipt_msg8, 0, 1, 'C')
+            # Position at 1 cm from bottom
+            self.set_y(-10)
+            # Arial italic 8
+            self.set_font('Arial', 'I', 8)
+            # Page number
+            self.cell(0, 10, 'Page ' + str(self.page_no()) + '/{nb}', 0, 0, 'C')
+
+        def add_item(self, description, numitems, sellprice):
+            self.set_font('Arial', '', 10)
+            self.cell(158, 5, str(description), 0, 0, 'L')
+            self.cell(21, 5, str(numitems), 0, 0, 'L')
+            self.cell(15, 5, str(sellprice), 0, 1, 'R')
+
+        def load_resource(self, reason, filename):
+            if reason == "image":
+                if is_instance(filename, "_io.BytesIO"):
+                    f = io.ByesIO(filename)
+                elif filename.startswith("http://") or filename.startswith("https://"):
+                    f = BytesIO(urlopen(filename).read())
+                elif filename.startswith("data"):
+                    f = filename.split('base64,')[1]
+                    f = base64.b64decode(f)
+                    f = io.BytesIO(f)
+                else:
+                    f = open(filename, "rb")
+                return f
+            else:
+                self.error("Unknown resource loading reason \"%s\"" % reason)
+
+        # NOTE: Overriding parent _parsepng to allow loading BytesIO objects
+        def _parsepng(self, name):
+            from fpdf.py3k import PY3K
+            #Extract info from a PNG file
+            if isinstance(name, BytesIO):
+                f = name
+            elif name.startswith("http://") or name.startswith("https://"):
+                   f = urlopen(name)
+            else:
+                f=open(name,'rb')
+            if(not f):
+                self.error("Can't open image file: "+str(name))
+            #Check signature
+            magic = f.read(8).decode("latin1")
+            signature = '\x89'+'PNG'+'\r'+'\n'+'\x1a'+'\n'
+            if not PY3K: signature = signature.decode("latin1")
+            if(magic!=signature):
+                self.error('Not a PNG file: '+str(name))
+            #Read header chunk
+            f.read(4)
+            chunk = f.read(4).decode("latin1")
+            if(chunk!='IHDR'):
+                self.error('Incorrect PNG file: '+str(name))
+            w=self._freadint(f)
+            h=self._freadint(f)
+            bpc=ord(f.read(1))
+            if(bpc>8):
+                self.error('16-bit depth not supported: '+str(name))
+            ct=ord(f.read(1))
+            if(ct==0 or ct==4):
+                colspace='DeviceGray'
+            elif(ct==2 or ct==6):
+                colspace='DeviceRGB'
+            elif(ct==3):
+                colspace='Indexed'
+            else:
+                self.error('Unknown color type: '+str(name))
+            if(ord(f.read(1))!=0):
+                self.error('Unknown compression method: '+str(name))
+            if(ord(f.read(1))!=0):
+                self.error('Unknown filter method: '+str(name))
+            if(ord(f.read(1))!=0):
+                self.error('Interlacing not supported: '+str(name))
+            f.read(4)
+            dp='/Predictor 15 /Colors '
+            if colspace == 'DeviceRGB':
+                dp+='3'
+            else:
+                dp+='1'
+            dp+=' /BitsPerComponent '+str(bpc)+' /Columns '+str(w)+''
+            #Scan chunks looking for palette, transparency and image data
+            pal=''
+            trns=''
+            data=bytes() if PY3K else str()
+            n=1
+            while n != None:
+                n=self._freadint(f)
+                type=f.read(4).decode("latin1")
+                if(type=='PLTE'):
+                    #Read palette
+                    pal=f.read(n)
+                    f.read(4)
+                elif(type=='tRNS'):
+                    #Read transparency info
+                    t=f.read(n)
+                    if(ct==0):
+                        trns=[ord(substr(t,1,1)),]
+                    elif(ct==2):
+                        trns=[ord(substr(t,1,1)),ord(substr(t,3,1)),ord(substr(t,5,1))]
+                    else:
+                        pos=t.find('\x00'.encode("latin1"))
+                        if(pos!=-1):
+                            trns=[pos,]
+                    f.read(4)
+                elif(type=='IDAT'):
+                    #Read image data block
+                    data+=f.read(n)
+                    f.read(4)
+                elif(type=='IEND'):
+                    break
+                else:
+                    f.read(n+4)
+            if(colspace=='Indexed' and not pal):
+                self.error('Missing palette in '+name)
+            f.close()
+            info = {'w':w,'h':h,'cs':colspace,'bpc':bpc,'f':'FlateDecode','dp':dp,'pal':pal,'trns':trns,}
+            if(ct>=4):
+                # Extract alpha channel
+                data = zlib.decompress(data)
+                color = b('')
+                alpha = b('')
+                if(ct==4):
+                    # Gray image
+                    length = 2*w
+                    for i in range(h):
+                        pos = (1+length)*i
+                        color += b(data[pos])
+                        alpha += b(data[pos])
+                        line = substr(data, pos+1, length)
+                        re_c = re.compile('(.).'.encode("ascii"), flags=re.DOTALL)
+                        re_a = re.compile('.(.)'.encode("ascii"), flags=re.DOTALL)
+                        color += re_c.sub(lambda m: m.group(1), line)
+                        alpha += re_a.sub(lambda m: m.group(1), line)
+                else:
+                    # RGB image
+                    length = 4*w
+                    for i in range(h):
+                        pos = (1+length)*i
+                        color += b(data[pos])
+                        alpha += b(data[pos])
+                        line = substr(data, pos+1, length)
+                        re_c = re.compile('(...).'.encode("ascii"), flags=re.DOTALL)
+                        re_a = re.compile('...(.)'.encode("ascii"), flags=re.DOTALL)
+                        color += re_c.sub(lambda m: m.group(1), line)
+                        alpha += re_a.sub(lambda m: m.group(1), line)
+                del data
+                data = zlib.compress(color)
+                info['smask'] = zlib.compress(alpha)
+                if (self.pdf_version < '1.4'):
+                    self.pdf_version = '1.4'
+            info['data'] = data
+            return info
+
+
+    pdf = PDF_Transaction()
+    pdf.set_margins(10, 10)
+    pdf.set_auto_page_break(False)
+    pdf.set_font('Arial')
+    pdf.alias_nb_pages()
+
+    i_num = 0
+    for i in items_l:
+        if i_num % 30 == 0:
+            pdf.add_page()
+        i_num += 1
+
+        item = i.as_api_dict()
+        if transaction_d['ftime'].weekday() in app.config['DISCOUNT_PRICE_DAY']:
+            price = item['discountedprice'].quantize(
+                    Decimal('0.01'), rounding=ROUND_HALF_UP)
+        else:
+            price = item['price'].quantize(
+                    Decimal('0.01'), rounding=ROUND_HALF_UP)
+        pdf.add_item(item['description'], item['numitems'], price)
+
+    pdf_file = pdfstore[app.config['TEMP_STORAGE']]
+    if app.config['TEMP_STORAGE'] == 'MEM':
+        pdf_file = BytesIO(pdf.output(dest='S').encode('latin-1'))
+    if app.config['TEMP_STORAGE'] == 'FILE':
+        pdf.output(name=pdf_file, dest='F')
+        f = open("{}".format(pdfstore['FILE']), 'rb')
+        pdf_file = BytesIO(f.read())
+
+    pdf_file.seek(0)
+
+    return pdf_file
 
 
 ### Business logic for User DAOs
@@ -1518,7 +1823,7 @@ def listtransactionfrom_user(old_username):
 
 ### Business logic for Barcode DAOs
 
-def generate_barcode(codedata):
+def generate_barcode(codedata, imgtype='SVG'):
 
     if app.config['BARCODE_SYMBOLOGY'] in barcode.PROVIDED_BARCODES:
 
@@ -1527,16 +1832,24 @@ def generate_barcode(codedata):
         imgstore = {}
         imgstore['MEM'] = BytesIO()
         imgstore['FILE'] = "{}/{}".format(
-                app.config['BARCODE_TEMPDIR'],
+                app.config['TEMP_DIR'],
                 codedata
                 )
 
-        barcode_img = imgstore[app.config['BARCODE_STORAGE']]
-        barcode.generate(
-            app.config['BARCODE_SYMBOLOGY'],
-            codedata,
-            output=barcode_img
-            )
+        barcode_img = imgstore[app.config['TEMP_STORAGE']]
+        if imgtype == 'SVG':
+            barcode.generate(
+                app.config['BARCODE_SYMBOLOGY'],
+                codedata,
+                output=barcode_img
+                )
+        elif imgtype == 'PNG':
+            barcode.generate(
+                app.config['BARCODE_SYMBOLOGY'],
+                codedata,
+                writer=barcode.writer.ImageWriter(),
+                output=barcode_img
+                )
     else:
         app.logger.error("Unknown Barcode Symbology: {}".format(
             app.config['BARCODE_SYMBOLOGY'])
@@ -1544,7 +1857,7 @@ def generate_barcode(codedata):
         app.logger.error("Set config BARCODE_SYMBOLOGY to one of the following:")
         app.logger.error("{}".format(PROVIDES_BARCODES))
 
-    if app.config['BARCODE_STORAGE'] == 'FILE':
+    if app.config['TEMP_STORAGE'] == 'FILE':
         f = open("{}.svg".format(imgstore['FILE']), 'rb')
         barcode_img = BytesIO(f.read())
 
@@ -1582,9 +1895,9 @@ def get_auditlogs(q_auditlog_uuid=None, q_username=None, q_tag=None,
     for log in logs_l:
         new_log = log.as_api_dict().copy()
 
-        tags = []
+        tags = {}
         for tag in get_auditlogtags(new_log['uuid']):
-            tags.append(tag.as_api_dict()['tag'])
+            tags[tag.as_api_dict()['tag']] = tag.as_api_dict()['tagtype']
         new_log['tags'] = tags
 
         newlog_l.append(new_log)
