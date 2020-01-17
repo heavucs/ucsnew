@@ -17,6 +17,7 @@ from ...logic import create_transaction
 from ...logic import replace_transaction
 from ...logic import patch_transaction
 from ...logic import delete_transaction
+from ...logic import generate_receipt_pdf
 
 transaction_parser = api.parser()
 transaction_parser.add_argument('username', type=str, location='args',
@@ -110,6 +111,29 @@ class TransactionResourceView(Resource):
 
         return delete_transaction(flask_g.username, transaction_uuid, api.payload), 200
 
+@ns.route('/<string:transaction_uuid>/receiptpdf')
+@ns.param('transaction_uuid', description="Resource ID")
+class TransactionPDF(Resource):
+
+    @http_auth.login_required
+    @ns.doc('create_pdf')
+    @ns.response(200, 'OK')
+    @ns.response(404, 'Not Found')
+    @ns.produces(['application/pdf'])
+    def get(self, transaction_uuid):
+
+        '''Generates a PDF receipt'''
+
+        transaction_pdf = generate_receipt_pdf(transaction_uuid)
+
+        return send_file(
+                transaction_pdf,
+                mimetype='application/pdf',
+                as_attachment=True,
+                attachment_filename='{}.pdf'.format(transaction_uuid),
+                cache_timeout=0,
+                )
+
 
 from .api_models import delete_item_model
 from .api_models import item_model
@@ -118,7 +142,6 @@ item_model = ns.model('Item', item_model)
 from ...logic import listitemfrom_transaction
 from ...logic import additemto_transaction
 from ...logic import removeitemfrom_transaction
-from ...logic import generate_transaction_pdf
 
 @ns.route('/<string:transaction_uuid>/items')
 @ns.param('transaction_uuid', description="Resource ID")
@@ -135,30 +158,6 @@ class TransactionItems(Resource):
         '''List items from transaction'''
 
         return listitemfrom_transaction(transaction_uuid), 200
-
-@ns.route('/<string:transaction_uuid>/pdf')
-@ns.param('transaction_uuid', description="Resource ID")
-class TransactionPDF(Resource):
-
-    @http_auth.login_required
-    @ns.doc('create_pdf')
-    @ns.response(200, 'OK')
-    @ns.response(404, 'Not Found')
-    @ns.produces(['application/pdf'])
-    def get(self, transaction_uuid):
-
-        '''Generates a PDF receipt'''
-
-        transaction_pdf = generate_transaction_pdf(transaction_uuid)
-
-        return send_file(
-                transaction_pdf,
-                mimetype='application/pdf',
-                as_attachment=True,
-                attachment_filename='{}.pdf'.format(transaction_uuid),
-                cache_timeout=0,
-                )
-
 
 @ns.route('/<string:transaction_uuid>/items/<string:item_uuid>',
         endpoint='transaction_items')

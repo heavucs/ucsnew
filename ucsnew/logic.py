@@ -422,6 +422,481 @@ def listitemfrom_member(old_membernumber):
 
     return get_items(q_membernumber=old_membernumber)
 
+def generate_mastersheet_pdf(membernumber):
+
+    try:
+        db_member = (
+                    Member.query
+                    .filter(Member.membernumber == membernumber)
+                    .one()
+                )
+    except NoResultFound:
+        raise NotFound
+    member_d = db_member.as_api_dict()
+
+    items_l = get_items(q_membernumber=membernumber)
+
+    pdfstore = {}
+    pdfstore['MEM'] = BytesIO()
+    pdfstore['FILE'] = "{}/{}".format(
+            app.config['TEMP_DIR'],
+            membernumber + '.pdf',
+            )
+
+    class PDF_Mastersheet(FPDF):
+        item_x = 1
+        item_width = 0.75
+        p_x = 1.75
+        p_width = 0.25
+        title_x = 2
+        title_width = 2.5
+        price_x = 4.5
+        price_width = 0.75
+        discount_x = 5.25
+        discount_width = 0.75
+        item2_x = 6
+        item2_width = 0.75
+        office_x = 6.75
+        office_width = 0.75
+
+        def __init__(self):
+            super().__init__(orientation='P', unit='in', format='letter')
+
+        def add_header_page(self):
+            title_text = "{} {} {} MASTER SHEET".format(
+                    app.config['ORG_NAME'],
+                    datetime.datetime.today().year,
+                    app.config['SALE_NAME'],
+                    )
+            mastersheet_msg1 = str(app.config['MASTERSHEET_MSG1'])
+            mastersheet_msg2 = str(app.config['MASTERSHEET_MSG2'])
+
+            self.add_page()
+            self.set_fill_color(200, 200, 200)
+            self.set_font_size(16)
+            self.cell(7.5, 0.75, title_text, 0, 2, 'C')
+            self.set_font('Arial', '', 8)
+            self.set_xy(1, 1.15)
+            self.cell(3.5, 0.3, mastersheet_msg1, 0, 2, 'C')
+            self.set_xy(1, 1.25)
+            self.cell(3.5, 0.3, mastersheet_msg2, 0, 2, 'C')
+
+            self.set_font('Arial', 'B', 8)
+            self.set_xy(self.item_x, 1.5)
+            self.cell(self.item_width, 0.2, 'ITEM #', 1, 2, 'C')
+            self.set_xy(self.p_x, 1.5)
+            self.cell(self.p_width, 0.2, 'P', 1, 2, 'C')
+            self.set_xy(self.title_x, 1.5)
+            self.cell(self.title_width, 0.2, 'TITLE', 1, 2, 'C')
+            self.set_xy(self.price_x, 1.5)
+            self.cell(self.price_width, 0.2, 'PRICE', 1, 2, 'C')
+            self.set_xy(self.discount_x, 1.5)
+            self.cell(self.discount_width, 0.2, 'DISCOUNT', 1, 2, 'C')
+            self.set_xy(self.item2_x, 1.5)
+            self.cell(self.item2_width, 0.2, 'ITEM #', 1, 2, 'C')
+            self.set_xy(self.office_x, 1.5)
+            self.cell(self.office_width, 0.2, 'OFFICE USE', 1, 2, 'C')
+
+
+        def add_footer_page(self, pagetotal, subtotal, islastpage=False):
+            mastersheet_msg3 = str(app.config['MASTERSHEET_MSG3'])
+            mastersheet_msg4 = str(app.config['MASTERSHEET_MSG4'])
+            mastersheet_msg5 = str(app.config['MASTERSHEET_MSG5'])
+            mastersheet_msg6 = str(app.config['MASTERSHEET_MSG6'])
+            mastersheet_msg7 = str(app.config['MASTERSHEET_MSG7'])
+            mastersheet_msg8 = str(app.config['MASTERSHEET_MSG8'])
+            membernumber = str(member_d['membernumber'])
+            firstname = str(member_d['firstname'])
+            lastname = str(member_d['lastname'])
+            phone = str("({}) {}-{}").format(
+                    str(member_d['phone'])[0:3],
+                    str(member_d['phone'])[3:6],
+                    str(member_d['phone'])[6:10],
+                    )
+            address = str(member_d['address'])
+            address2 = str(member_d['address2'])
+            citystatezip = "{}, {} {}".format(
+                    member_d['city'],
+                    member_d['state'],
+                    member_d['zipcode'],
+                    )
+            phone = str(member_d['phone'])
+            email = str(member_d['email'])
+            member_barcode = generate_barcode(membernumber, imgtype='PNG')
+            pagetotal_str = "${}".format(
+                    Decimal(pagetotal).quantize(Decimal('0.01'),
+                        rounding=ROUND_HALF_UP)
+                    )
+            subtotal_other_str = "${}".format(
+                    Decimal(subtotal).quantize(Decimal('0.01'),
+                        rounding=ROUND_HALF_UP)
+                    )
+            subtotal_str = "${}".format(
+                    Decimal(subtotal + pagetotal).quantize(Decimal('0.01'),
+                        rounding=ROUND_HALF_UP)
+                    )
+            org_fee_rate = "LESS {} FEE {}%".format(
+                    app.config['ORG_NAME'],
+                    app.config['ORG_FEE_RATE'].quantize(
+                        Decimal('0.01'), rounding=ROUND_HALF_UP),
+                    )
+            org_fee = (subtotal + pagetotal) * app.config['ORG_FEE_RATE']
+            org_fee_str = "${}".format(org_fee.quantize(
+                        Decimal('0.01'), rounding=ROUND_HALF_UP)
+                    )
+            grand_total = subtotal + pagetotal - org_fee
+            grand_total_str = "${}".format(
+                    Decimal(grand_total).quantize(Decimal('0.01'),
+                        rounding=ROUND_HALF_UP)
+                    )
+
+            row_height = 0.185
+            row_y = (25 * row_height) + 1.7
+            self.set_fill_color(200, 200, 200)
+            self.set_font('Arial', '', 8)
+            self.set_xy(1, row_y)
+            self.cell(3.5, row_height, mastersheet_msg3, 0, 2, 'L')
+
+            self.set_font('Arial', 'B', 8)
+            self.set_xy(self.price_x, row_y)
+            self.cell(self.price_width * 3, row_height, 'SUBTOTAL', 0, 2, 'R')
+            self.set_xy(self.office_x, row_y)
+            self.cell(self.office_width, row_height, pagetotal_str, 1, 2, 'R', 1)
+            row_y += row_height
+            self.set_xy(self.price_x, row_y)
+            self.cell(self.price_width * 3, row_height, 'SUBTOTAL FROM OTHER PAGES', 0, 2, 'R')
+            self.set_xy(self.office_x, row_y)
+            self.cell(self.office_width, row_height, subtotal_other_str, 1, 2, 'R', 1)
+            row_y += row_height
+            self.set_xy(self.price_x, row_y)
+            self.cell(self.price_width * 3, row_height, 'SUBTOTAL', 0, 2, 'R')
+            self.set_xy(self.office_x, row_y)
+            self.cell(self.office_width, row_height, subtotal_str, 1, 2, 'R', 1)
+            row_y += row_height
+            self.set_xy(self.price_x, row_y)
+            self.cell(self.price_width * 3, row_height, org_fee_rate, 0, 2, 'R')
+            self.set_xy(self.office_x, row_y)
+            if islastpage:
+                self.cell(self.office_width, row_height, org_fee_str, 1, 2, 'R', 1)
+            else:
+                self.cell(self.office_width, row_height, '-----', 1, 2, 'C', 1)
+            row_y += row_height
+            self.set_xy(self.price_x, row_y)
+            self.cell(self.price_width * 3, row_height, 'GRAND TOTAL', 0, 2, 'R')
+            self.set_xy(self.office_x, row_y)
+            if islastpage:
+                self.cell(self.office_width, row_height, grand_total_str, 1, 2, 'R', 1)
+            else:
+                self.cell(self.office_width, row_height, '-----', 1, 2, 'C', 1)
+
+            row_y += 2 * row_height
+            self.rect(1, row_y, 3.75, 1.5)
+            self.rect(1, row_y + 1.5, 3.75, 1.25)
+            self.rect(4.75, row_y, 2.75, 2.75)
+            row_y += 0.15
+            self.set_font('Arial', 'B', 9)
+            self.text(1.1, row_y, 'DROP-OFF AGREEMENT')
+            self.text(1.1, row_y + 1.5, 'PICK-UP AGREEMENT')
+            self.text(4.8, row_y, 'NAME')
+            self.text(4.8, row_y + 0.4, 'ADDRESS')
+            self.text(4.8, row_y + 0.8, 'CITY / STATE / ZIP')
+            self.text(4.8, row_y + 1.1, 'PHONE')
+            self.text(4.8, row_y + 1.4, 'EMAIL')
+            self.set_font('Arial', '', 8)
+            self.text(1.1, row_y + 0.11, mastersheet_msg4)
+            self.text(1.1, row_y + 0.21, mastersheet_msg5)
+            self.text(1.1, row_y + 0.31, mastersheet_msg6)
+            self.rect(1.1, row_y + 0.41, 0.12, 0.12)
+            self.rect(1.1, row_y + 0.56, 0.12, 0.12)
+            self.rect(1.1, row_y + 0.71, 0.12, 0.12)
+            self.text(1.3, row_y + 0.5, 'Donate All')
+            self.text(1.3, row_y + 0.66, 'Pick-up By Seller')
+            self.text(1.3, row_y + 0.81, 'Pick-up By Other')
+            self.line(2.2, row_y + 0.81, 4.5, row_y + 0.81)
+            self.text(1.1, row_y + 1.3, mastersheet_msg7)
+            self.line(1.1, row_y + 1.17, 4.5, row_y + 1.17)
+            self.rect(1.1, row_y + 1.65, 0.12, 0.12)
+            self.rect(1.1, row_y + 1.80, 0.12, 0.12)
+            self.rect(1.1, row_y + 1.95, 0.12, 0.12)
+            self.text(1.3, row_y + 1.75, 'All Items')
+            self.text(1.3, row_y + 1.91, 'Some Missing; Accepted')
+            self.text(1.3, row_y + 2.07, 'Please search for #s')
+            self.line(2.4, row_y + 2.07, 4.5, row_y + 2.07)
+            self.text(1.1, row_y + 2.55, mastersheet_msg8)
+            self.line(1.1, row_y + 2.42, 4.5, row_y + 2.42)
+
+            self.set_font('Arial', '', 16)
+            self.text(4.8, row_y + 0.18, lastname + ', ' + firstname)
+            self.set_font('Arial', '', 8)
+            self.text(4.8, row_y + 0.51, address)
+            self.text(4.8, row_y + 0.61, address2)
+            self.text(4.8, row_y + 0.91, citystatezip)
+            self.text(4.8, row_y + 1.21, phone)
+            self.text(4.8, row_y + 1.51, email)
+
+            self.image(member_barcode, 5.25, row_y + 1.65, h=0.75, type='PNG')
+
+        def add_item(self, i, item):
+            item_d = item.as_api_dict()
+            itemnumber = str(item_d['itemnumber'])
+            description = str(item_d['description'])
+            price = str(item_d['price'])
+            discountprice = str(item_d['discountprice'])
+            donate = item_d['donate']
+            if donate == '0':
+                donate_bool = False
+            else:
+                donate_bool = True
+            status = item_d['status']
+            transactions_l = get_transactions(q_itemnumber=item_d['uuid'])
+            if len(transactions_l) > 0:
+                for i in transactions_l:
+                    if not i['ftime'].weekday() in app.config['DISCOUNT_PRICE_DAY']:
+                        saleprice = item_d['price']
+                        break
+                    else:
+                        continue
+                else:   # If no break occurs # If item sold, but not at discount
+                    saleprice = item_d['discountprice']
+            else:
+                saleprice = 0
+            saleprice_str = "${}".format(Decimal(saleprice).quantize(
+                    Decimal('0.01'), rounding=ROUND_HALF_UP))
+
+            row_height = 0.185
+            row_y = (i * row_height) + 1.7
+
+            if not item_d['deleted'] == "1":
+                if item_d['status'] == "0":
+                    self.set_fill_color(0, 255, 255)
+                elif item_d['status'] == "1":
+                    self.set_fill_color(255, 255, 255)
+                elif item_d['status'] == "2":
+                    self.set_fill_color(0, 255, 0)
+                elif item_d['status'] == "3":
+                    self.set_fill_color(0, 0, 255)
+                elif item_d['status'] == "4":
+                    self.set_fill_color(255, 255, 0)
+                else:
+                    pass
+            else:
+                self.set_fill_color(255, 255, 255)
+
+            self.set_font('Arial', 'B', 8)
+            self.set_xy(self.item_x, row_y)
+            self.cell(self.item_width, row_height, itemnumber, 1, 2, 'C', 1)
+            self.set_font('Arial', '', 8)
+            self.set_xy(self.p_x, row_y)
+            if donate_bool:
+                self.cell(self.p_width, row_height, 'X', 1, 2, 'C', 1)
+            else:
+                self.cell(self.p_width, row_height, '', 1, 2, 'C', 1)
+            self.set_xy(self.title_x, row_y)
+            self.cell(self.title_width, row_height, description, 1, 2, 'L', 1)
+            self.set_xy(self.price_x, row_y)
+            self.cell(self.price_width, row_height, price, 1, 2, 'R', 1)
+            self.set_xy(self.discount_x, row_y)
+            self.cell(self.discount_width, row_height, discountprice, 1, 2, 'R', 1)
+            self.set_fill_color(200, 200, 200)
+            self.set_font('Arial', 'B', 8)
+            self.set_xy(self.item2_x, row_y)
+            self.cell(self.item2_width, row_height, itemnumber, 1, 2, 'C', 1)
+            self.set_xy(self.office_x, row_y)
+            self.cell(self.office_width, row_height, saleprice_str, 1, 2, 'R', 1)
+
+        def load_resource(self, reason, filename):
+            if reason == "image":
+                if is_instance(filename, "_io.BytesIO"):
+                    f = io.ByesIO(filename)
+                elif filename.startswith("http://") or filename.startswith("https://"):
+                    f = BytesIO(urlopen(filename).read())
+                elif filename.startswith("data"):
+                    f = filename.split('base64,')[1]
+                    f = base64.b64decode(f)
+                    f = io.BytesIO(f)
+                else:
+                    f = open(filename, "rb")
+                return f
+            else:
+                self.error("Unknown resource loading reason \"%s\"" % reason)
+
+        # NOTE: Overriding parent _parsepng to allow loading BytesIO objects
+        def _parsepng(self, name):
+            from fpdf.py3k import PY3K
+            #Extract info from a PNG file
+            if isinstance(name, BytesIO):
+                f = name
+            elif name.startswith("http://") or name.startswith("https://"):
+                   f = urlopen(name)
+            else:
+                f=open(name,'rb')
+            if(not f):
+                self.error("Can't open image file: "+str(name))
+            #Check signature
+            magic = f.read(8).decode("latin1")
+            signature = '\x89'+'PNG'+'\r'+'\n'+'\x1a'+'\n'
+            if not PY3K: signature = signature.decode("latin1")
+            if(magic!=signature):
+                self.error('Not a PNG file: '+str(name))
+            #Read header chunk
+            f.read(4)
+            chunk = f.read(4).decode("latin1")
+            if(chunk!='IHDR'):
+                self.error('Incorrect PNG file: '+str(name))
+            w=self._freadint(f)
+            h=self._freadint(f)
+            bpc=ord(f.read(1))
+            if(bpc>8):
+                self.error('16-bit depth not supported: '+str(name))
+            ct=ord(f.read(1))
+            if(ct==0 or ct==4):
+                colspace='DeviceGray'
+            elif(ct==2 or ct==6):
+                colspace='DeviceRGB'
+            elif(ct==3):
+                colspace='Indexed'
+            else:
+                self.error('Unknown color type: '+str(name))
+            if(ord(f.read(1))!=0):
+                self.error('Unknown compression method: '+str(name))
+            if(ord(f.read(1))!=0):
+                self.error('Unknown filter method: '+str(name))
+            if(ord(f.read(1))!=0):
+                self.error('Interlacing not supported: '+str(name))
+            f.read(4)
+            dp='/Predictor 15 /Colors '
+            if colspace == 'DeviceRGB':
+                dp+='3'
+            else:
+                dp+='1'
+            dp+=' /BitsPerComponent '+str(bpc)+' /Columns '+str(w)+''
+            #Scan chunks looking for palette, transparency and image data
+            pal=''
+            trns=''
+            data=bytes() if PY3K else str()
+            n=1
+            while n != None:
+                n=self._freadint(f)
+                type=f.read(4).decode("latin1")
+                if(type=='PLTE'):
+                    #Read palette
+                    pal=f.read(n)
+                    f.read(4)
+                elif(type=='tRNS'):
+                    #Read transparency info
+                    t=f.read(n)
+                    if(ct==0):
+                        trns=[ord(substr(t,1,1)),]
+                    elif(ct==2):
+                        trns=[ord(substr(t,1,1)),ord(substr(t,3,1)),ord(substr(t,5,1))]
+                    else:
+                        pos=t.find('\x00'.encode("latin1"))
+                        if(pos!=-1):
+                            trns=[pos,]
+                    f.read(4)
+                elif(type=='IDAT'):
+                    #Read image data block
+                    data+=f.read(n)
+                    f.read(4)
+                elif(type=='IEND'):
+                    break
+                else:
+                    f.read(n+4)
+            if(colspace=='Indexed' and not pal):
+                self.error('Missing palette in '+name)
+            f.close()
+            info = {'w':w,'h':h,'cs':colspace,'bpc':bpc,'f':'FlateDecode','dp':dp,'pal':pal,'trns':trns,}
+            if(ct>=4):
+                # Extract alpha channel
+                data = zlib.decompress(data)
+                color = b('')
+                alpha = b('')
+                if(ct==4):
+                    # Gray image
+                    length = 2*w
+                    for i in range(h):
+                        pos = (1+length)*i
+                        color += b(data[pos])
+                        alpha += b(data[pos])
+                        line = substr(data, pos+1, length)
+                        re_c = re.compile('(.).'.encode("ascii"), flags=re.DOTALL)
+                        re_a = re.compile('.(.)'.encode("ascii"), flags=re.DOTALL)
+                        color += re_c.sub(lambda m: m.group(1), line)
+                        alpha += re_a.sub(lambda m: m.group(1), line)
+                else:
+                    # RGB image
+                    length = 4*w
+                    for i in range(h):
+                        pos = (1+length)*i
+                        color += b(data[pos])
+                        alpha += b(data[pos])
+                        line = substr(data, pos+1, length)
+                        re_c = re.compile('(...).'.encode("ascii"), flags=re.DOTALL)
+                        re_a = re.compile('...(.)'.encode("ascii"), flags=re.DOTALL)
+                        color += re_c.sub(lambda m: m.group(1), line)
+                        alpha += re_a.sub(lambda m: m.group(1), line)
+                del data
+                data = zlib.compress(color)
+                info['smask'] = zlib.compress(alpha)
+                if (self.pdf_version < '1.4'):
+                    self.pdf_version = '1.4'
+            info['data'] = data
+            return info
+
+
+    pdf = PDF_Mastersheet()
+    pdf.orientation = 'P'
+    pdf.unit = 'in'
+    pdf.format = 'letter'
+    pdf.set_auto_page_break(False)
+    pdf.set_font('Arial')
+    i = 0
+    pagetotal = Decimal(0).quantize(Decimal('0.01'),
+            rounding=ROUND_HALF_UP)
+    subtotal = Decimal(0).quantize(Decimal('0.01'),
+            rounding=ROUND_HALF_UP)
+    if not i:
+        pdf.add_header_page()
+    items_l = get_items(q_membernumber=membernumber, per_page=100000)
+    for item in items_l:
+        pdf.add_item(i, item)
+        transactions_l = get_transactions(q_itemnumber=item.uuid)
+        if len(transactions_l) > 0:
+            for i in transactions_l:
+                if not i['ftime'].weekday() in app.config['DISCOUNT_PRICE_DAY']:
+                    saleprice = item_d['price']
+                    break
+                else:
+                    continue
+            else:   # If no break occurs # If item sold, but not at discount
+                saleprice = item_d['discountprice']
+        else:
+            saleprice = 0
+        pagetotal += saleprice
+        subtotal += saleprice
+        if i < 25:
+            i += 1
+        else:
+            i = 0
+            pagetotal = 0
+            pdf.add_header_page()
+            pdf.add_footer_page(pagetotal, subtotal)
+        #continue
+    else:   # if no break occurs before end of list
+        pdf.add_footer_page(pagetotal, subtotal, islastpage=True)
+
+
+    pdf_file = pdfstore[app.config['TEMP_STORAGE']]
+    if app.config['TEMP_STORAGE'] == 'MEM':
+        pdf_file = BytesIO(pdf.output(dest='S').encode('latin-1'))
+    if app.config['TEMP_STORAGE'] == 'FILE':
+        pdf.output(name=pdf_file, dest='F')
+        f = open("{}".format(pdfstore['FILE']), 'rb')
+        pdf_file = BytesIO(f.read())
+
+    pdf_file.seek(0)
+
+    return pdf_file
 
 ### Business logic for Item DAOs
 
@@ -824,7 +1299,9 @@ def get_transactions(q_username=None, q_itemnumber=None, q_transaction_uuid=None
         db_transaction = db_transaction.filter(Transaction.user_username.like("{}%%"
                 .format(q_username)))
     if q_itemnumber:
-        db_transaction = db_transaction.filter(Transaction.items.like("%%{}%%"
+        db_transaction = db_transaction.join(Transaction_Item)
+        db_transaction = db_transaction.join(Item)
+        db_transaction = db_transaction.filter(Item.uuid.like("%%{}%%"
                 .format(q_itemnumber)))
     if q_transaction_uuid:
         db_transaction = db_transaction.filter(Transaction.uuid.like("%%{}%%"
@@ -1313,7 +1790,7 @@ def removeitemfrom_transaction(auth_user, old_transaction_uuid, old_item_uuid):
 
     return listitemfrom_transaction(old_transaction_uuid)
 
-def generate_transaction_pdf(transaction_uuid):
+def generate_receipt_pdf(transaction_uuid):
 
     try:
         db_transaction = (
@@ -1348,8 +1825,7 @@ def generate_transaction_pdf(transaction_uuid):
 
             self.set_font('Arial', 'B', 10)
             self.cell(78, 5, 'Transaction UUID', 'TL', 0, 'L')
-            #TODO: Transaction Barcode is commented until it can be formatted correctly
-            #self.image(transaction_barcode, 90, self.get_y(), 30, type='PNG')
+            self.image(transaction_barcode, 60, 198, h=28, type='PNG')
             self.cell(93, 5, 'Date', 'T', 0, 'L')
             self.cell(23, 5, 'User', 'TR', 1, 'L')
             self.set_font('Arial', '', 10)

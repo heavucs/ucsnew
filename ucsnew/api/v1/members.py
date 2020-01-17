@@ -2,6 +2,7 @@ from flask_restplus import Api
 from flask_restplus import Resource
 from flask_restplus import fields
 from flask import g as flask_g
+from flask import send_file
 from ... import http_auth
 
 api = Api()
@@ -16,6 +17,7 @@ from ...logic import create_member
 from ...logic import replace_member
 from ...logic import patch_member
 from ...logic import delete_member
+from ...logic import generate_mastersheet_pdf
 
 member_parser = ns.parser()
 member_parser.add_argument('membernumber', type=str, location='args',
@@ -106,6 +108,29 @@ class MemberResourceView(Resource):
         '''Delete member'''
 
         return delete_member(flask_g.username, membernumber, api.payload), 200
+
+@ns.route('/<string:membernumber>/mastersheetpdf')
+@ns.param('membernumber', description="Resource ID")
+class MemberMastersheetPDF(Resource):
+
+    @http_auth.login_required
+    @ns.doc('create_pdf')
+    @ns.response(200, 'OK')
+    @ns.response(404, 'Not Found')
+    @ns.produces(['application/pdf'])
+    def get(self, membernumber):
+
+        '''Generates a PDF mastersheet'''
+
+        mastersheet_pdf = generate_mastersheet_pdf(membernumber)
+
+        return send_file(
+                mastersheet_pdf,
+                mimetype='application/pdf',
+                as_attachment=True,
+                attachment_filename='{}.pdf'.format(membernumber),
+                cache_timeout=0,
+                )
 
 
 from .api_models import item_model
