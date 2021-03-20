@@ -6,7 +6,7 @@ flask-restplus==0.13.0
 Flask-SQLAlchemy==2.4.1
 fpdf==1.7.2
 itsdangerous==0.24
-Jinja2==2.10.3
+Jinja2==2.11.3
 jsonschema==2.6.0
 MarkupSafe==1.0
 mysqlclient==1.3.14
